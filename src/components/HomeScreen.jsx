@@ -36,8 +36,8 @@ export default function HomeScreen({ onSelectLevel, onOpenStudyTab, onOpenExamTa
   const overallJourneyPercent = ((totalMastered / TOTAL_HSK9_WORDS) * 100).toFixed(1);
 
   const handleCardClick = (lvlConfig) => {
-    if (lvlConfig.level === 1) {
-      setCurrentLevel(1);
+    if (lvlConfig.level === 1 || lvlConfig.level === 2) {
+      setCurrentLevel(lvlConfig.level);
       onOpenStudyTab();
     } else {
       setPreviewLevel(lvlConfig);
@@ -276,12 +276,12 @@ export default function HomeScreen({ onSelectLevel, onOpenStudyTab, onOpenExamTa
                         handleCardClick(lvl);
                       }}
                       className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-2xs ${
-                        isLevel1 
+                        (isLevel1 || lvl.level === 2)
                           ? 'bg-slate-900 hover:bg-rose-500 text-white active:scale-95' 
                           : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
                       }`}
                     >
-                      <span>{isLevel1 ? 'Masuk Belajar' : 'Lihat Detail'}</span>
+                      <span>{(isLevel1 || lvl.level === 2) ? 'Masuk Belajar' : 'Lihat Detail'}</span>
                       <ArrowRight size={13} />
                     </button>
                   </div>

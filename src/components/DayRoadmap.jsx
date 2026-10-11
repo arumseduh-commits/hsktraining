@@ -20,8 +20,12 @@ export default function DayRoadmap({ onSelectDayStudy }) {
     words, 
     getDayStats, 
     markFirst150Mastered,
-    resetAllProgress 
+    resetAllProgress,
+    daysConfig,
+    currentLevel
   } = useLearning();
+
+  const sprintDays = daysConfig || DAYS_CONFIG;
 
   const totalWords = words.length;
   const progressPercent = Math.round((totalMastered / totalWords) * 100);
@@ -41,13 +45,13 @@ export default function DayRoadmap({ onSelectDayStudy }) {
             <div className="space-y-2 max-w-md">
               <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/10 text-rose-300 text-[11px] font-semibold backdrop-blur-md">
                 <Sparkles size={12} className="text-rose-400" />
-                <span>Sprint HSK 1 Standar 3.0</span>
+                <span>Sprint HSK {currentLevel} Standar 3.0</span>
               </div>
               <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white leading-tight">
-                Kuasai 500 Kosakata dalam <span className="text-transparent bg-clip-text bg-gradient-to-r from-rose-400 to-amber-300">4 Hari</span>
+                Kuasai {totalWords} Kosakata HSK {currentLevel} dalam <span className="text-transparent bg-clip-text bg-gradient-to-r from-rose-400 to-amber-300">{sprintDays.length} Hari</span>
               </h2>
               <p className="text-xs sm:text-sm text-slate-300 font-normal leading-relaxed">
-                Kurikulum terstruktur 125 kata per hari dengan metode Active Recall, latihan refleks audio, dan kanvas Tian Zi Ge.
+                Kurikulum terstruktur ~{Math.round(totalWords / sprintDays.length)} kata per hari dengan metode Active Recall, latihan refleks audio, dan kanvas Tian Zi Ge.
               </p>
             </div>
 
@@ -156,7 +160,7 @@ export default function DayRoadmap({ onSelectDayStudy }) {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {DAYS_CONFIG.map(dayCfg => {
+          {sprintDays.map(dayCfg => {
             const stats = getDayStats(dayCfg.day);
             const isCompleted = stats.percent === 100;
 
