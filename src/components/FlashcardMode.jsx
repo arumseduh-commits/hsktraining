@@ -18,7 +18,8 @@ import { useLearning } from '../context/LearningContext';
 import { speakChinese } from '../utils/speech';
 
 export default function FlashcardMode({ initialDay = 1 }) {
-  const { words, wordStatus, updateWordStatus, audioSpeed } = useLearning();
+  const { words, wordStatus, updateWordStatus, audioSpeed, daysConfig } = useLearning();
+  const sprintDaysList = daysConfig ? daysConfig.map(d => d.day) : [1, 2, 3, 4];
 
   const [selectedDay, setSelectedDay] = useState(initialDay);
   const [filterStatus, setFilterStatus] = useState('all');
@@ -157,7 +158,7 @@ export default function FlashcardMode({ initialDay = 1 }) {
           >
             Semua
           </button>
-          {[1, 2, 3, 4].map(d => (
+          {sprintDaysList.map(d => (
             <button
               key={d}
               onClick={() => { setSelectedDay(d); setCurrentIndex(0); }}

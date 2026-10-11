@@ -14,7 +14,8 @@ import { useLearning } from '../context/LearningContext';
 import { speakChinese } from '../utils/speech';
 
 export default function WritingCanvas({ initialDay = 1 }) {
-  const { words, audioSpeed, updateWordStatus } = useLearning();
+  const { words, audioSpeed, updateWordStatus, daysConfig } = useLearning();
+  const sprintDaysList = daysConfig ? daysConfig.map(d => d.day) : [1, 2, 3, 4];
 
   const [selectedDay, setSelectedDay] = useState(initialDay);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -118,11 +119,11 @@ export default function WritingCanvas({ initialDay = 1 }) {
       {/* Day Filter Pills */}
       <div className="flex items-center justify-between gap-2 p-1.5 bg-slate-100/70 rounded-2xl border border-slate-200/50">
         <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
-          {['all', 1, 2, 3, 4].map(d => (
+          {['all', ...sprintDaysList].map(d => (
             <button
               key={d}
               onClick={() => { setSelectedDay(d); setCurrentIndex(0); }}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
                 selectedDay === d
                   ? 'bg-rose-500 text-white font-bold shadow-xs'
                   : 'text-slate-500 hover:text-slate-800'

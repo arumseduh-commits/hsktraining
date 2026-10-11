@@ -103,51 +103,84 @@ export default function DayRoadmap({ onSelectDayStudy }) {
             </div>
             <div>
               <span className="text-[11px] text-slate-400 font-medium block">Target Harian</span>
-              <span className="text-base sm:text-lg font-bold text-amber-400 font-mono">125 kata/hari</span>
+              <span className="text-base sm:text-lg font-bold text-amber-400 font-mono">
+                ~{Math.round(totalWords / sprintDays.length)} kata/hari
+              </span>
             </div>
           </div>
 
           {/* Subtle Hanzi Watermark */}
           <div className="absolute -right-4 -bottom-10 text-[140px] font-black text-white/5 select-none pointer-events-none font-hanzi">
-            壹
+            {currentLevel === 2 ? '贰' : currentLevel === 3 ? '叁' : '壹'}
           </div>
         </div>
 
-        {/* Quick Activation Card for User (Already Memorized 150 words) */}
+        {/* Quick Acceleration or Level Focus Widget */}
         <div className="card-subtle rounded-3xl p-6 flex flex-col justify-between bg-gradient-to-b from-amber-50/60 to-white border-amber-200/80">
-          <div>
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold text-sm shadow-xs shadow-amber-500/20">
-                ⚡
+          {currentLevel === 1 ? (
+            <>
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold text-sm shadow-xs shadow-amber-500/20">
+                    ⚡
+                  </div>
+                  <span className="text-xs font-bold text-amber-900 tracking-wide uppercase">
+                    Akselerasi Belajar
+                  </span>
+                </div>
+
+                <h3 className="text-base font-bold text-slate-900 leading-snug">
+                  Sudah Hafal 150 Kata Pertama?
+                </h3>
+                <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
+                  Tandai 150 kata awal langsung sebagai <strong>"Sudah Dikuasai"</strong> untuk langsung fokus ke sisa kata berikutnya.
+                </p>
               </div>
-              <span className="text-xs font-bold text-amber-900 tracking-wide uppercase">
-                Akselerasi Belajar
-              </span>
-            </div>
 
-            <h3 className="text-base font-bold text-slate-900 leading-snug">
-              Sudah Hafal 150 Kata Pertama?
-            </h3>
-            <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
-              Tandai 150 kata awal (seluruh Hari 1 & sebagian Hari 2) langsung sebagai <strong>"Sudah Dikuasai"</strong> untuk langsung fokus ke sisa kata berikutnya.
-            </p>
-          </div>
+              <button
+                onClick={markFirst150Mastered}
+                className="mt-5 w-full py-2.5 px-4 rounded-2xl bg-amber-500 hover:bg-amber-600 active:scale-98 text-white font-bold text-xs shadow-sm transition-all"
+              >
+                Kunci 150 Kata Awal
+              </button>
+            </>
+          ) : (
+            <>
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-8 h-8 rounded-xl bg-rose-500 text-white flex items-center justify-center font-bold text-sm shadow-xs shadow-rose-500/20">
+                    🚀
+                  </div>
+                  <span className="text-xs font-bold text-rose-900 tracking-wide uppercase">
+                    Fokus HSK {currentLevel}
+                  </span>
+                </div>
 
-          <button
-            onClick={markFirst150Mastered}
-            className="mt-5 w-full py-2.5 px-4 rounded-2xl bg-amber-500 hover:bg-amber-600 active:scale-98 text-white font-bold text-xs shadow-sm transition-all"
-          >
-            Kunci 150 Kata Awal
-          </button>
+                <h3 className="text-base font-bold text-slate-900 leading-snug">
+                  Sprint {sprintDays.length} Hari HSK {currentLevel}
+                </h3>
+                <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
+                  Target harian: pelajari ~{Math.round(totalWords / sprintDays.length)} kosakata per hari dengan Flashcard dan Speed Drill.
+                </p>
+              </div>
+
+              <button
+                onClick={() => onSelectDayStudy(1, 'flashcard')}
+                className="mt-5 w-full py-2.5 px-4 rounded-2xl bg-slate-900 hover:bg-rose-500 active:scale-98 text-white font-bold text-xs shadow-sm transition-all"
+              >
+                Mulai Hari 1 (Flashcard)
+              </button>
+            </>
+          )}
         </div>
       </div>
 
-      {/* 4-Day Sprint Cards Grid */}
+      {/* Dynamic Sprint Cards Grid */}
       <div className="space-y-3 pt-2">
         <div className="flex items-center justify-between px-1">
           <h3 className="text-sm font-bold tracking-tight text-slate-800 flex items-center gap-2">
             <Calendar size={16} className="text-rose-500" />
-            <span>Rencana Belajar 4 Hari (125 Kata/Hari)</span>
+            <span>Rencana Belajar {sprintDays.length} Hari (~{Math.round(totalWords / sprintDays.length)} Kata/Hari)</span>
           </h3>
 
           <button

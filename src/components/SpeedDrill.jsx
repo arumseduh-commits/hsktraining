@@ -13,7 +13,8 @@ import { useLearning } from '../context/LearningContext';
 import { speakChinese } from '../utils/speech';
 
 export default function SpeedDrill({ initialDay = 'all' }) {
-  const { words, audioSpeed, updateWordStatus } = useLearning();
+  const { words, audioSpeed, updateWordStatus, daysConfig } = useLearning();
+  const sprintDaysList = daysConfig ? daysConfig.map(d => d.day) : [1, 2, 3, 4];
 
   const [drillMode, setDrillMode] = useState('hz_to_meaning');
   const [selectedDay, setSelectedDay] = useState(initialDay);
@@ -180,18 +181,18 @@ export default function SpeedDrill({ initialDay = 'all' }) {
           </div>
 
           {/* Day selection */}
-          <div className="flex items-center justify-center gap-1">
-            {['all', 1, 2, 3, 4].map(d => (
+          <div className="flex items-center justify-center gap-1 overflow-x-auto no-scrollbar py-1">
+            {['all', ...sprintDaysList].map(d => (
               <button
                 key={d}
                 onClick={() => setSelectedDay(d)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
                   selectedDay === d
                     ? 'bg-slate-900 text-white font-bold'
                     : 'text-slate-500 hover:bg-slate-100'
                 }`}
               >
-                {d === 'all' ? 'Semua (500)' : `Hari ${d}`}
+                {d === 'all' ? `Semua (${words.length})` : `Hari ${d}`}
               </button>
             ))}
           </div>

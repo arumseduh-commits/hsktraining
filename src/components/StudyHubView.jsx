@@ -18,7 +18,7 @@ import MockExamView from './MockExamView';
 import { useLearning } from '../context/LearningContext';
 
 export default function StudyHubView() {
-  const { currentLevel } = useLearning();
+  const { currentLevel, daysConfig, words } = useLearning();
   const [studySubTab, setStudySubTab] = useState('roadmap');
   const [selectedDayParam, setSelectedDayParam] = useState(1);
 
@@ -27,13 +27,16 @@ export default function StudyHubView() {
     setStudySubTab(targetMode);
   };
 
+  const sprintDaysCount = daysConfig ? daysConfig.length : (currentLevel === 2 ? 8 : 4);
+  const wordsCount = words ? words.length : (currentLevel === 2 ? 772 : 500);
+
   const subNavItems = [
-    { id: 'roadmap', label: 'Sprint 4 Hari', icon: Compass },
+    { id: 'roadmap', label: `Sprint ${sprintDaysCount} Hari`, icon: Compass },
     { id: 'flashcard', label: 'Flashcard', icon: Layers },
     { id: 'drill', label: 'Speed Drill', icon: Zap },
     { id: 'writing', label: 'Tulis Hanzi', icon: PenTool },
     { id: 'sentence', label: 'Susun Kalimat', icon: Puzzle },
-    { id: 'vocab', label: 'Kamus 500', icon: Search },
+    { id: 'vocab', label: `Kamus ${wordsCount}`, icon: Search },
     { id: 'quick_quiz', label: 'Kuis Cepat', icon: Award },
   ];
 

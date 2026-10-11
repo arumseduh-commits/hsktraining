@@ -9,7 +9,8 @@ import { useLearning } from '../context/LearningContext';
 import { speakChinese } from '../utils/speech';
 
 export default function VocabListView() {
-  const { words, wordStatus, updateWordStatus, audioSpeed } = useLearning();
+  const { words, wordStatus, updateWordStatus, audioSpeed, daysConfig } = useLearning();
+  const sprintDaysList = daysConfig ? daysConfig.map(d => d.day) : [1, 2, 3, 4];
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDay, setSelectedDay] = useState('all');
@@ -76,11 +77,11 @@ export default function VocabListView() {
             >
               Semua
             </button>
-            {[1, 2, 3, 4].map(d => (
+            {sprintDaysList.map(d => (
               <button
                 key={d}
                 onClick={() => setSelectedDay(d)}
-                className={`px-3 py-1 rounded-xl text-xs font-semibold transition-all ${
+                className={`px-3 py-1 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
                   selectedDay === d ? 'bg-rose-500 text-white font-bold' : 'text-slate-500 hover:bg-slate-100'
                 }`}
               >
