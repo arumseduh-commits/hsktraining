@@ -1,14 +1,14 @@
 # 🇨🇳 HSK Turbo (Standar 3.0) — Aplikasi Belajar & Ujian Resmi Mandarin
 
-Aplikasi web modern berbasis mobile-first untuk menguasai bahasa Mandarin dengan kurikulum **HSK 3.0 terbaru**, dirancang dengan protokol belajar cepat (Sprint 4 Hari untuk 500 kosakata HSK 1) dan roadmap terstruktur menuju **HSK 5 (4.316 kata)**.
+Aplikasi web modern berbasis mobile-first untuk menguasai bahasa Mandarin dengan kurikulum **HSK 3.0 terbaru**, dirancang dengan protokol belajar cepat (Sprint 4 Hari untuk 500 kosakata HSK 1) dan roadmap terstruktur menuju **HSK 9 (11.092 kata)**.
 
 ---
 
 ## 🌟 Fitur Utama
 
-- 🏠 **Beranda & Roadmap HSK 1 – HSK 5**:
-  - Pelacak progres kumulatif menuju 4.316 kata HSK 5.
-  - Kartu interaktif tiap tingkatan HSK (HSK 1 s/d HSK 5) lengkap dengan target CEFR, jumlah Hanzi, dan durasi sprint.
+- 🏠 **Beranda & Roadmap HSK 1 – HSK 9**:
+  - Pelacak progres kumulatif menuju 11.092 kata HSK 9 (Tingkat Dasar, Menengah, hingga Mahir C2+).
+  - Kartu interaktif tiap tingkatan HSK (HSK 1 s/d HSK 9) lengkap dengan filter kategori, target CEFR, jumlah Hanzi, dan durasi sprint.
   - Fitur 1-klik "Kunci 150 Kata" untuk langsung menandai progres awal yang sudah dikuasai.
 
 - 📖 **Study Hub HSK 1 (500 Kosakata Standar 3.0)**:

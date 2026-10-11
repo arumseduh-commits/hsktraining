@@ -12,6 +12,7 @@ import {
   ShieldCheck
 } from 'lucide-react';
 import { useLearning } from '../context/LearningContext';
+import { TOTAL_HSK9_WORDS } from '../data/hskLevelsConfig';
 import OfficialCertificateModal from './OfficialCertificateModal';
 
 export default function ProfileView() {
@@ -41,7 +42,7 @@ export default function ProfileView() {
     }
   };
 
-  const totalJourneyWords = 4316; // HSK 1-5
+  const totalJourneyWords = TOTAL_HSK9_WORDS; // HSK 1-9 (11,092 kata)
   const percentJourney = ((totalMastered / totalJourneyWords) * 100).toFixed(1);
 
   return (
@@ -60,7 +61,7 @@ export default function ProfileView() {
               </span>
             </div>
             <p className="text-xs text-slate-400 mt-0.5">
-              Target Jangka Panjang: Menguasai HSK 5
+              Target Jangka Panjang: Menguasai HSK 9 (11.092 Kata)
             </p>
           </div>
         </div>
@@ -109,23 +110,68 @@ export default function ProfileView() {
           </div>
 
           <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-100">
-            <span className="text-[10px] text-slate-400 font-semibold uppercase block">Menuju HSK 5</span>
+            <span className="text-[10px] text-slate-400 font-semibold uppercase block">Menuju HSK 9</span>
             <span className="text-2xl font-black text-rose-600 font-mono mt-0.5 block">{percentJourney}%</span>
-            <span className="text-[10px] text-slate-400">dari 4.316 kata total</span>
+            <span className="text-[10px] text-slate-400">dari 11.092 kata total</span>
           </div>
         </div>
 
         {/* Milestone Milestones */}
-        <div className="space-y-2 pt-2">
-          <div className="flex items-center justify-between text-xs font-semibold text-slate-700">
-            <span>Milestone 1: HSK 1 (500 kata)</span>
-            <span className="text-rose-600 font-mono">{totalMastered >= 500 ? '100%' : `${Math.round((totalMastered/500)*100)}%`}</span>
+        <div className="space-y-3 pt-2">
+          {/* Milestone HSK 1 */}
+          <div className="space-y-1">
+            <div className="flex items-center justify-between text-xs font-semibold text-slate-700">
+              <span>Fondasi: HSK 1 (500 kata)</span>
+              <span className="text-rose-600 font-mono">{totalMastered >= 500 ? '100%' : `${Math.round((totalMastered/500)*100)}%`}</span>
+            </div>
+            <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-rose-500 rounded-full transition-all duration-500"
+                style={{ width: `${Math.min(100, Math.round((totalMastered/500)*100))}%` }}
+              />
+            </div>
           </div>
-          <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
-            <div 
-              className="h-full bg-rose-500 rounded-full transition-all duration-500"
-              style={{ width: `${Math.min(100, Math.round((totalMastered/500)*100))}%` }}
-            />
+
+          {/* Milestone HSK 3 */}
+          <div className="space-y-1">
+            <div className="flex items-center justify-between text-xs font-semibold text-slate-700">
+              <span>Tingkat Dasar: HSK 3 (2.245 kata)</span>
+              <span className="text-amber-600 font-mono">{totalMastered >= 2245 ? '100%' : `${Math.round((totalMastered/2245)*100)}%`}</span>
+            </div>
+            <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-amber-500 rounded-full transition-all duration-500"
+                style={{ width: `${Math.min(100, Math.round((totalMastered/2245)*100))}%` }}
+              />
+            </div>
+          </div>
+
+          {/* Milestone HSK 6 */}
+          <div className="space-y-1">
+            <div className="flex items-center justify-between text-xs font-semibold text-slate-700">
+              <span>Tingkat Menengah: HSK 6 (5.456 kata)</span>
+              <span className="text-blue-600 font-mono">{totalMastered >= 5456 ? '100%' : `${Math.round((totalMastered/5456)*100)}%`}</span>
+            </div>
+            <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-blue-500 rounded-full transition-all duration-500"
+                style={{ width: `${Math.min(100, Math.round((totalMastered/5456)*100))}%` }}
+              />
+            </div>
+          </div>
+
+          {/* Milestone HSK 9 */}
+          <div className="space-y-1">
+            <div className="flex items-center justify-between text-xs font-semibold text-slate-700">
+              <span>Puncak Mahir: HSK 9 (11.092 kata)</span>
+              <span className="text-purple-600 font-mono">{totalMastered >= 11092 ? '100%' : `${percentJourney}%`}</span>
+            </div>
+            <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-purple-500 rounded-full transition-all duration-500"
+                style={{ width: `${Math.min(100, parseFloat(percentJourney))}%` }}
+              />
+            </div>
           </div>
         </div>
       </div>

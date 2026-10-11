@@ -1,10 +1,14 @@
-// Konfigurasi Standar 5 Level HSK 3.0 (HSK 1 s/d HSK 5)
+// Konfigurasi Lengkap Standar 9 Level HSK 3.0 (HSK 1 s/d HSK 9)
+// Standar Baru Kementerian Pendidikan Tiongkok (MOE) & CTI 汉考国际
 
 export const HSK_LEVELS_CONFIG = [
+  // --- TINGKAT DASAR (初等 / ELEMENTARY) ---
   {
     level: 1,
     code: "HSK 1",
-    title: "Tingkat Dasar I (Pemula)",
+    category: "dasar",
+    categoryLabel: "Tingkat Dasar (初等)",
+    title: "Fondasi Bahasa & Komunikasi Dasar",
     desc: "Menguasai kosakata dasar sehari-hari, sistem pinyin, angka, sapaan, dan struktur kalimat paling awal.",
     totalWords: 500,
     newWords: 500,
@@ -15,13 +19,15 @@ export const HSK_LEVELS_CONFIG = [
     accentBg: "bg-rose-50 border-rose-200 text-rose-700",
     badgeColor: "bg-rose-500 text-white",
     ringColor: "#f43f5e",
-    status: "active", // active, available, locked
+    status: "active",
     targetDescription: "Memahami dan menggunakan kalimat sederhana untuk kebutuhan praktis dasar."
   },
   {
     level: 2,
     code: "HSK 2",
-    title: "Tingkat Dasar II (Percakapan Harian)",
+    category: "dasar",
+    categoryLabel: "Tingkat Dasar (初等)",
+    title: "Percakapan Praktis Sehari-hari",
     desc: "Mampu berkomunikasi secara langsung mengenai topik sehari-hari yang akrab (belanja, arah, cuaca).",
     totalWords: 1272,
     newWords: 772,
@@ -38,7 +44,9 @@ export const HSK_LEVELS_CONFIG = [
   {
     level: 3,
     code: "HSK 3",
-    title: "Tingkat Dasar III (Komunikasi Mandiri)",
+    category: "dasar",
+    categoryLabel: "Tingkat Dasar (初等)",
+    title: "Komunikasi Mandiri & Wisata",
     desc: "Mampu menggunakan bahasa Mandarin untuk menyelesaikan tugas dasar dalam belajar, bekerja, dan wisata.",
     totalWords: 2245,
     newWords: 973,
@@ -52,10 +60,14 @@ export const HSK_LEVELS_CONFIG = [
     status: "preview",
     targetDescription: "Mandiri berkomunikasi dalam sebagian besar situasi perjalanan atau kehidupan di Tiongkok."
   },
+
+  // --- TINGKAT MENENGAH (中等 / INTERMEDIATE) ---
   {
     level: 4,
     code: "HSK 4",
-    title: "Tingkat Menengah I (Fasih Menengah)",
+    category: "menengah",
+    categoryLabel: "Tingkat Menengah (中等)",
+    title: "Percakapan Luas & Diskusi Bebas",
     desc: "Mampu berdiskusi mengenai berbagai topik yang lebih luas dan fasih berkomunikasi dengan penutur asli.",
     totalWords: 3245,
     newWords: 1000,
@@ -72,7 +84,9 @@ export const HSK_LEVELS_CONFIG = [
   {
     level: 5,
     code: "HSK 5",
-    title: "Tingkat Menengah II (Tingkat Lanjut Profesional)",
+    category: "menengah",
+    categoryLabel: "Tingkat Menengah (中等)",
+    title: "Kelancaran Profesional & Media",
     desc: "Mampu membaca surat kabar dan majalah Tiongkok, menonton film, serta menyampaikan pidato lengkap.",
     totalWords: 4316,
     newWords: 1071,
@@ -85,5 +99,85 @@ export const HSK_LEVELS_CONFIG = [
     ringColor: "#8b5cf6",
     status: "preview",
     targetDescription: "Standar bekerja profesional dan kuliah pascasarjana (S2) di Tiongkok."
+  },
+  {
+    level: 6,
+    code: "HSK 6",
+    category: "menengah",
+    categoryLabel: "Tingkat Menengah (中等)",
+    title: "Ekspresi Mendalam & Narasi Kompleks",
+    desc: "Mampu dengan mudah memahami segala informasi yang didengar atau dibaca dalam bahasa Mandarin serta mengekspresikan diri secara lisan dan tulisan dengan spontan dan lancar.",
+    totalWords: 5456,
+    newWords: 1140,
+    hanziCount: 1800,
+    cefr: "C2",
+    sprintProtocol: "Sprint 45 Hari (~25 kata/hari)",
+    color: "from-fuchsia-500 to-pink-600",
+    accentBg: "bg-fuchsia-50 border-fuchsia-200 text-fuchsia-700",
+    badgeColor: "bg-fuchsia-500 text-white",
+    ringColor: "#d946ef",
+    status: "preview",
+    targetDescription: "Tingkat puncak pendidikan akademik S3 dan kemampuan membaca literatur komprehensif."
+  },
+
+  // --- TINGKAT MAHIR / LANJUTAN (高等 / ADVANCED HSK 7-9) ---
+  {
+    level: 7,
+    code: "HSK 7",
+    category: "mahir",
+    categoryLabel: "Tingkat Mahir (高等)",
+    title: "Kajian Akademik & Komunikasi Spesialis",
+    desc: "Mampu melakukan riset ilmiah, berdiskusi mengenai topik sosiopolitik, filsafat, dan menulis artikel analitis formal.",
+    totalWords: 7000,
+    newWords: 1544,
+    hanziCount: 2200,
+    cefr: "C2",
+    sprintProtocol: "Sprint 60 Hari (~25 kata/hari)",
+    color: "from-teal-600 to-cyan-700",
+    accentBg: "bg-teal-50 border-teal-200 text-teal-800",
+    badgeColor: "bg-teal-600 text-white",
+    ringColor: "#0d9488",
+    status: "preview",
+    targetDescription: "Kemampuan analisis mendalam untuk peneliti dan ahli profesional tingkat internasional."
+  },
+  {
+    level: 8,
+    code: "HSK 8",
+    category: "mahir",
+    categoryLabel: "Tingkat Mahir (高等)",
+    title: "Debat Ilmiah, Terjemahan & Negosiasi Tingkat Tinggi",
+    desc: "Mampu menerjemahkan teks lintas budaya, menavigasi debat formal dan negosiasi diplomasi, serta mengapresiasi sastra klasik Tiongkok.",
+    totalWords: 9000,
+    newWords: 2000,
+    hanziCount: 2600,
+    cefr: "C2+",
+    sprintProtocol: "Sprint 75 Hari (~25 kata/hari)",
+    color: "from-indigo-600 to-blue-800",
+    accentBg: "bg-indigo-50 border-indigo-200 text-indigo-800",
+    badgeColor: "bg-indigo-600 text-white",
+    ringColor: "#4f46e5",
+    status: "preview",
+    targetDescription: "Standar penerjemah profesional, diplomat, dan akademisi penutur non-pribumi."
+  },
+  {
+    level: 9,
+    code: "HSK 9",
+    category: "mahir",
+    categoryLabel: "Tingkat Mahir (高等)",
+    title: "Kelancaran Setara Penutur Asli Akademisi (Puncak 3.0)",
+    desc: "Tingkat tertinggi HSK Standar 3.0. Menguasai nuansa bahasa yang halus, peribahasa klasik (Chengyu), literatur historis, dan berpikir kritis dalam standar penutur asli bertaraf cendekiawan.",
+    totalWords: 11092,
+    newWords: 2092,
+    hanziCount: 3000,
+    cefr: "C2+ Native",
+    sprintProtocol: "Sprint 90 Hari (~25 kata/hari)",
+    color: "from-amber-600 via-rose-600 to-purple-800",
+    accentBg: "bg-gradient-to-r from-amber-50 to-rose-50 border-amber-300 text-amber-900",
+    badgeColor: "bg-gradient-to-r from-amber-500 to-purple-600 text-white",
+    ringColor: "#b45309",
+    status: "preview",
+    targetDescription: "Standar tertinggi penguasaan bahasa Mandarin di dunia (11.092 kata & 3.000 karakter Hanzi)."
   }
 ];
+
+export const TOTAL_HSK9_WORDS = 11092;

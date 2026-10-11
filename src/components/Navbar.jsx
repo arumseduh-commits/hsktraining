@@ -55,7 +55,7 @@ export default function Navbar({ activeTab, setActiveTab, onOpenIosModal }) {
                 </span>
               </div>
               <p className="text-[11px] text-slate-400 font-medium hidden sm:block">
-                Standar 3.0 • Menuju HSK 5
+                Standar 3.0 • Menuju HSK 9
               </p>
             </div>
           </div>
