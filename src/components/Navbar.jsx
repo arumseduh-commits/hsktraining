@@ -20,8 +20,7 @@ export default function Navbar({ activeTab, setActiveTab, onOpenIosModal, onOpen
     setAudioSpeed, 
     candidateName,
     currentLevel,
-    user,
-    isCloudSyncing
+    user
   } = useLearning();
 
   const totalWords = words.length;
@@ -131,11 +130,6 @@ export default function Navbar({ activeTab, setActiveTab, onOpenIosModal, onOpen
               <span className="max-w-[80px] sm:max-w-[110px] truncate text-left">
                 {user?.user_metadata?.full_name ? user.user_metadata.full_name.split(' ')[0] : candidateName.split(' ')[0]}
               </span>
-              {user && (
-                <span className={`w-2 h-2 rounded-full absolute -top-0.5 -right-0.5 border border-white ${
-                  isCloudSyncing ? 'bg-amber-400 animate-pulse' : 'bg-emerald-400'
-                }`} title={isCloudSyncing ? "Menyinkronkan..." : "Cloud Sync Aktif"} />
-              )}
             </button>
           </div>
         </div>

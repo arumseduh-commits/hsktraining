@@ -29,14 +29,12 @@ export function LearningProvider({ children }) {
     return currentLevel === 2 ? DAYS_CONFIG_HSK2 : HSK1_DAYS;
   });
 
-  // Track word mastery status per level
+  // Track word mastery status for the active level
   const [wordStatus, setWordStatus] = useState(() => {
     try {
-      // Check level-specific key first
       const levelSaved = localStorage.getItem(`${STORAGE_KEY}_status_lvl_${currentLevel}`);
       if (levelSaved) return JSON.parse(levelSaved);
 
-      // Fallback for legacy HSK 1 progress
       const legacySaved = localStorage.getItem('hsk1_turbo_progress_v1_status');
       if (currentLevel === 1 && legacySaved) return JSON.parse(legacySaved);
 
@@ -76,20 +74,36 @@ export function LearningProvider({ children }) {
            'Pembelajar HSK';
   });
 
-  // Supabase Auth & Cloud Sync States
+  // Supabase Auth States
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
-  const [isCloudSyncing, setIsCloudSyncing] = useState(false);
-  const [lastSyncedAt, setLastSyncedAt] = useState(() => {
-    return localStorage.getItem(`${STORAGE_KEY}_last_synced_at`) || null;
-  });
-  const [isSupabaseReady, setIsSupabaseReady] = useState(() => isSupabaseConfigured());
 
-  // Ref to hold sync timeout for debouncing
+  // Refs to prevent infinite re-render/request loops
+  const hasInitialSyncedRef = useRef(false);
   const syncDebounceRef = useRef(null);
+  const stateRef = useRef({
+    user: null,
+    candidateName,
+    currentLevel,
+    wordStatus,
+    examScores,
+    officialHistory
+  });
+
+  // Keep stateRef fresh without triggering re-renders
+  useEffect(() => {
+    stateRef.current = {
+      user,
+      candidateName,
+      currentLevel,
+      wordStatus,
+      examScores,
+      officialHistory
+    };
+  }, [user, candidateName, currentLevel, wordStatus, examScores, officialHistory]);
 
   // Helper: Collect all level statuses from storage
-  const getAllWordStatuses = useCallback(() => {
+  const getAllWordStatusesFromStorage = () => {
     const all = {};
     for (let lvl = 1; lvl <= 9; lvl++) {
       try {
@@ -104,94 +118,108 @@ export function LearningProvider({ children }) {
         // ignore
       }
     }
-    all[currentLevel] = wordStatus;
+    // inject current in-memory status
+    all[stateRef.current.currentLevel] = stateRef.current.wordStatus;
     return all;
-  }, [currentLevel, wordStatus]);
+  };
 
-  // Helper: Apply merged statuses into localStorage and current state
-  const applyMergedWordStatuses = useCallback((mergedStatuses, targetLevel) => {
-    if (!mergedStatuses) return;
-    for (const [lvl, statuses] of Object.entries(mergedStatuses)) {
+  // Silent Background Push to Cloud (Debounced, only on real user modifications)
+  const scheduleSilentCloudSync = useCallback(() => {
+    const activeUser = stateRef.current.user;
+    if (!activeUser) return;
+
+    if (syncDebounceRef.current) clearTimeout(syncDebounceRef.current);
+
+    syncDebounceRef.current = setTimeout(async () => {
       try {
-        localStorage.setItem(`${STORAGE_KEY}_status_lvl_${lvl}`, JSON.stringify(statuses));
-        if (Number(lvl) === 1) {
-          localStorage.setItem('hsk1_turbo_progress_v1_status', JSON.stringify(statuses));
-        }
-      } catch (e) {
-        console.error(e);
+        const payload = {
+          candidateName: stateRef.current.candidateName,
+          currentLevel: stateRef.current.currentLevel,
+          allWordStatuses: getAllWordStatusesFromStorage(),
+          examScores: stateRef.current.examScores,
+          officialHistory: stateRef.current.officialHistory
+        };
+        await pushRemoteProgress(activeUser, payload);
+      } catch (err) {
+        console.error('Silent sync error:', err);
       }
-    }
-    const levelToLoad = targetLevel || currentLevel;
-    if (mergedStatuses[levelToLoad]) {
-      setWordStatus(mergedStatuses[levelToLoad]);
-    }
-  }, [currentLevel]);
+    }, 2500); // Wait 2.5s after user stops clicking
+  }, []);
 
-  // Handle User Signed In (Cloud Pull + Intelligent Merge + Cloud Push)
-  const handleUserSignedIn = useCallback(async (signedUser) => {
-    if (!signedUser) return;
-    setIsCloudSyncing(true);
+  // Perform Initial Sync Exactly Once upon User Login
+  const performInitialCloudSync = async (signedUser) => {
+    if (!signedUser || hasInitialSyncedRef.current) return;
+    hasInitialSyncedRef.current = true;
 
     try {
-      const { data: cloudData, error } = await fetchRemoteProgress(signedUser.id);
+      const { data: cloudData } = await fetchRemoteProgress(signedUser.id);
       
       const localData = {
-        candidateName,
-        currentLevel,
-        allWordStatuses: getAllWordStatuses(),
-        officialHistory,
-        examScores
+        candidateName: stateRef.current.candidateName,
+        currentLevel: stateRef.current.currentLevel,
+        allWordStatuses: getAllWordStatusesFromStorage(),
+        officialHistory: stateRef.current.officialHistory,
+        examScores: stateRef.current.examScores
       };
 
       if (cloudData) {
-        // Merge cloud with local
         const merged = mergeLearningProgress(localData, cloudData);
 
         if (merged.candidateName) {
           setCandidateName(merged.candidateName);
+          localStorage.setItem(`${STORAGE_KEY}_candidate_name`, merged.candidateName);
         }
         if (merged.currentLevel) {
           setCurrentLevel(merged.currentLevel);
+          localStorage.setItem(`${STORAGE_KEY}_current_level`, merged.currentLevel.toString());
         }
         if (merged.officialHistory) {
           setOfficialHistory(merged.officialHistory);
+          localStorage.setItem(`${STORAGE_KEY}_official_exams`, JSON.stringify(merged.officialHistory));
         }
         if (merged.examScores) {
           setExamScores(merged.examScores);
+          localStorage.setItem(`${STORAGE_KEY}_exams`, JSON.stringify(merged.examScores));
         }
-        applyMergedWordStatuses(merged.allWordStatuses, merged.currentLevel);
 
-        // Push merged state back to Supabase to guarantee parity
+        // Save merged statuses into storage
+        if (merged.allWordStatuses) {
+          for (const [lvl, statuses] of Object.entries(merged.allWordStatuses)) {
+            try {
+              localStorage.setItem(`${STORAGE_KEY}_status_lvl_${lvl}`, JSON.stringify(statuses));
+              if (Number(lvl) === 1) {
+                localStorage.setItem('hsk1_turbo_progress_v1_status', JSON.stringify(statuses));
+              }
+            } catch (e) {
+              console.error(e);
+            }
+          }
+          const activeLvl = merged.currentLevel || stateRef.current.currentLevel;
+          if (merged.allWordStatuses[activeLvl]) {
+            setWordStatus(merged.allWordStatuses[activeLvl]);
+          }
+        }
+
+        // Push parity result once
         await pushRemoteProgress(signedUser, merged);
-
-        const now = new Date().toISOString();
-        setLastSyncedAt(now);
-        localStorage.setItem(`${STORAGE_KEY}_last_synced_at`, now);
       } else {
-        // User baru di cloud: push data lokal yang ada saat ini
-        const userDisplayName = signedUser.user_metadata?.full_name || signedUser.email?.split('@')[0] || candidateName;
-        if (userDisplayName && candidateName === 'Pembelajar HSK') {
-          setCandidateName(userDisplayName);
-          localData.candidateName = userDisplayName;
+        // New user on cloud
+        const googleName = signedUser.user_metadata?.full_name || signedUser.email?.split('@')[0];
+        if (googleName && (stateRef.current.candidateName === 'Pembelajar HSK' || !stateRef.current.candidateName)) {
+          setCandidateName(googleName);
+          localData.candidateName = googleName;
+          localStorage.setItem(`${STORAGE_KEY}_candidate_name`, googleName);
         }
-
         await pushRemoteProgress(signedUser, localData);
-        const now = new Date().toISOString();
-        setLastSyncedAt(now);
-        localStorage.setItem(`${STORAGE_KEY}_last_synced_at`, now);
       }
     } catch (err) {
-      console.error('Gagal sinkronisasi data cloud saat login:', err);
-    } finally {
-      setIsCloudSyncing(false);
+      console.error('Initial sync error:', err);
     }
-  }, [candidateName, currentLevel, getAllWordStatuses, officialHistory, examScores, applyMergedWordStatuses]);
+  };
 
-  // Initialize Supabase Auth Listener
+  // Initialize Supabase Auth (Runs ONCE on mount, zero re-trigger loops)
   useEffect(() => {
     const supabase = getSupabase();
-    setIsSupabaseReady(isSupabaseConfigured());
-
     if (!supabase) {
       setAuthLoading(false);
       return;
@@ -200,51 +228,35 @@ export function LearningProvider({ children }) {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
         setUser(session.user);
-        handleUserSignedIn(session.user);
+        performInitialCloudSync(session.user);
       }
       setAuthLoading(false);
     }).catch(err => {
-      console.error('Session check error:', err);
+      console.error('Session error:', err);
       setAuthLoading(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (session?.user) {
         setUser(session.user);
         if (event === 'SIGNED_IN') {
-          await handleUserSignedIn(session.user);
+          performInitialCloudSync(session.user);
         }
       } else {
         setUser(null);
+        hasInitialSyncedRef.current = false;
       }
     });
 
     return () => {
       subscription?.unsubscribe();
     };
-  }, [handleUserSignedIn]);
-
-  // Refresh configuration when modal updates credentials
-  const refreshSupabaseState = useCallback(() => {
-    const ready = isSupabaseConfigured();
-    setIsSupabaseReady(ready);
-    const supabase = getSupabase();
-    if (supabase) {
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        if (session?.user) {
-          setUser(session.user);
-          handleUserSignedIn(session.user);
-        }
-      });
-    }
-  }, [handleUserSignedIn]);
+  }, []);
 
   // Google Login Trigger
   const loginWithGoogle = async () => {
     const supabase = getSupabase();
-    if (!supabase) {
-      throw new Error('Supabase belum terkonfigurasi. Silakan atur URL & Anon Key terlebih dahulu.');
-    }
+    if (!supabase) throw new Error('Supabase client belum siap.');
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
@@ -262,38 +274,13 @@ export function LearningProvider({ children }) {
       await supabase.auth.signOut();
     }
     setUser(null);
+    hasInitialSyncedRef.current = false;
   };
 
-  // Manual Trigger: Sinkronkan Sekarang
-  const syncNow = async () => {
-    if (!user) return;
-    setIsCloudSyncing(true);
-    try {
-      const payload = {
-        candidateName,
-        currentLevel,
-        allWordStatuses: getAllWordStatuses(),
-        examScores,
-        officialHistory
-      };
-      const { success } = await pushRemoteProgress(user, payload);
-      if (success) {
-        const now = new Date().toISOString();
-        setLastSyncedAt(now);
-        localStorage.setItem(`${STORAGE_KEY}_last_synced_at`, now);
-      }
-    } catch (err) {
-      console.error('Manual sync error:', err);
-    } finally {
-      setIsCloudSyncing(false);
-    }
-  };
-
-  // Auto-cache and load words when currentLevel changes
+  // Auto-cache & load words when level changes
   useEffect(() => {
     let isCancelled = false;
 
-    // Load words from auto-cache
     loadLevelVocabulary(currentLevel).then(({ words: loadedWords, daysConfig: loadedDays }) => {
       if (!isCancelled) {
         setWords(loadedWords);
@@ -301,7 +288,6 @@ export function LearningProvider({ children }) {
       }
     });
 
-    // Load level-specific word status
     try {
       const savedStatus = localStorage.getItem(`${STORAGE_KEY}_status_lvl_${currentLevel}`);
       if (savedStatus) {
@@ -332,7 +318,7 @@ export function LearningProvider({ children }) {
     preCacheAllLevels();
   }, []);
 
-  // Save word status to localStorage and trigger cloud debounced auto-sync
+  // Save word status to localStorage
   useEffect(() => {
     try {
       localStorage.setItem(`${STORAGE_KEY}_status_lvl_${currentLevel}`, JSON.stringify(wordStatus));
@@ -342,15 +328,7 @@ export function LearningProvider({ children }) {
     } catch (e) {
       console.error(e);
     }
-
-    // Debounced Cloud Sync if user is logged in
-    if (user) {
-      if (syncDebounceRef.current) clearTimeout(syncDebounceRef.current);
-      syncDebounceRef.current = setTimeout(() => {
-        syncNow();
-      }, 1500);
-    }
-  }, [wordStatus, currentLevel, user]);
+  }, [wordStatus, currentLevel]);
 
   useEffect(() => {
     try {
@@ -378,36 +356,32 @@ export function LearningProvider({ children }) {
     }
   }, [candidateName]);
 
-  const recordOfficialExamResult = (resultData) => {
-    setOfficialHistory(prev => [resultData, ...prev]);
-  };
-
-  // Update status for a word (e.g. 'mastered', 'reviewing', 'learning')
+  // User Actions (Trigger Silent Debounced Cloud Sync)
   const updateWordStatus = (id, status) => {
-    setWordStatus(prev => ({
-      ...prev,
-      [id]: status
-    }));
+    setWordStatus(prev => {
+      const updated = { ...prev, [id]: status };
+      return updated;
+    });
+    scheduleSilentCloudSync();
   };
 
-  // Batch mark first 150 words
   const markFirst150Mastered = () => {
     const updated = { ...wordStatus };
     for (let i = 1; i <= Math.min(150, words.length); i++) {
       updated[i] = 'mastered';
     }
     setWordStatus(updated);
+    scheduleSilentCloudSync();
   };
 
-  // Reset progress confirmation
   const resetAllProgress = () => {
     if (window.confirm("Apakah Anda yakin ingin mereset seluruh riwayat progres belajar di level ini?")) {
       setWordStatus({});
       setExamScores([]);
+      scheduleSilentCloudSync();
     }
   };
 
-  // Add exam result
   const recordExamScore = (score, totalQuestions) => {
     const record = {
       id: Date.now(),
@@ -418,9 +392,20 @@ export function LearningProvider({ children }) {
       passed: (score / totalQuestions) >= 0.6
     };
     setExamScores(prev => [record, ...prev]);
+    scheduleSilentCloudSync();
   };
 
-  // Calculate statistics
+  const recordOfficialExamResult = (resultData) => {
+    setOfficialHistory(prev => [resultData, ...prev]);
+    scheduleSilentCloudSync();
+  };
+
+  const changeCandidateName = (newName) => {
+    setCandidateName(newName);
+    scheduleSilentCloudSync();
+  };
+
+  // Statistics
   const totalMastered = Object.values(wordStatus).filter(s => s === 'mastered').length;
   const totalReviewing = Object.values(wordStatus).filter(s => s === 'reviewing').length;
   const totalLearning = Object.values(wordStatus).filter(s => s === 'learning').length;
@@ -457,21 +442,16 @@ export function LearningProvider({ children }) {
         officialHistory,
         recordOfficialExamResult,
         candidateName,
-        setCandidateName,
+        setCandidateName: changeCandidateName,
         totalMastered,
         totalReviewing,
         totalLearning,
         getDayStats,
-        // Cloud & Google Auth properties
+        // Auth properties
         user,
         authLoading,
-        isCloudSyncing,
-        lastSyncedAt,
-        isSupabaseReady,
         loginWithGoogle,
-        logout,
-        syncNow,
-        refreshSupabaseState
+        logout
       }}
     >
       {children}
