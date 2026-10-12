@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { LearningProvider, useLearning } from './context/LearningContext';
 import Navbar from './components/Navbar';
 import HomeScreen from './components/HomeScreen';
@@ -19,9 +20,10 @@ import {
 } from 'lucide-react';
 
 function AppContent() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const { user, authLoading, hasSelectedLevel } = useLearning();
-  const [activeTab, setActiveTab] = useState('home');
-  const [studyInitialSubTab, setStudyInitialSubTab] = useState('roadmap');
+
   const [isIosModalOpen, setIsIosModalOpen] = useState(false);
   const [isDialogueModalOpen, setIsDialogueModalOpen] = useState(false);
   const [isLevelSelectorOpen, setIsLevelSelectorOpen] = useState(false);
@@ -49,50 +51,56 @@ function AppContent() {
   // First-time onboarding: jika belum pernah memilih level HSK
   const shouldShowOnboarding = !hasSelectedLevel;
 
+  // Active status helpers for bottom navigation dock
+  const isHomeActive = location.pathname === '/' || location.pathname === '/home';
+  const isStudyActive = location.pathname.startsWith('/study');
+  const isGrammarActive = location.pathname.startsWith('/grammar');
+  const isOfficialActive = location.pathname.startsWith('/official');
+  const isProfileActive = location.pathname.startsWith('/profile');
+
   return (
     <div className="min-h-screen flex flex-col bg-[#f8fafc] text-slate-900 pb-24 sm:pb-12">
       {/* Top Header & Desktop Navigation */}
       <Navbar 
-        activeTab={activeTab} 
-        setActiveTab={setActiveTab}
         onOpenIosModal={() => setIsIosModalOpen(true)}
         onOpenDialogueModal={() => setIsDialogueModalOpen(true)}
         onOpenLevelSelector={() => setIsLevelSelectorOpen(true)}
       />
 
-      {/* Main View Router */}
+      {/* Main View Router with Real URL Slugs */}
       <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 pt-5">
-        {activeTab === 'home' && (
-          <HomeScreen 
-            onOpenStudyTab={(targetMode) => {
-              setStudyInitialSubTab(targetMode || 'roadmap');
-              setActiveTab('study');
-            }}
-            onOpenExamTab={() => setActiveTab('official')}
-            onOpenGrammarTab={() => setActiveTab('grammar')}
-            onOpenDialogueModal={() => setIsDialogueModalOpen(true)}
-            onOpenLevelSelector={() => setIsLevelSelectorOpen(true)}
+        <Routes>
+          <Route 
+            path="/" 
+            element={
+              <HomeScreen 
+                onOpenDialogueModal={() => setIsDialogueModalOpen(true)}
+                onOpenLevelSelector={() => setIsLevelSelectorOpen(true)}
+              />
+            } 
           />
-        )}
-
-        {activeTab === 'study' && (
-          <StudyHubView 
-            onOpenDialogueModal={() => setIsDialogueModalOpen(true)}
-            initialSubTab={studyInitialSubTab}
+          <Route path="/home" element={<Navigate to="/" replace />} />
+          <Route 
+            path="/study" 
+            element={
+              <StudyHubView 
+                onOpenDialogueModal={() => setIsDialogueModalOpen(true)}
+              />
+            } 
           />
-        )}
-
-        {activeTab === 'grammar' && (
-          <GrammarView />
-        )}
-
-        {activeTab === 'official' && (
-          <OfficialExamView />
-        )}
-
-        {activeTab === 'profile' && (
-          <ProfileView />
-        )}
+          <Route 
+            path="/study/:mode" 
+            element={
+              <StudyHubView 
+                onOpenDialogueModal={() => setIsDialogueModalOpen(true)}
+              />
+            } 
+          />
+          <Route path="/grammar" element={<GrammarView />} />
+          <Route path="/official" element={<OfficialExamView />} />
+          <Route path="/profile" element={<ProfileView />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
       </main>
 
       {/* Modals with React createPortal */}
@@ -116,65 +124,62 @@ function AppContent() {
       {/* Mobile Floating Bottom Navigation Dock */}
       <nav className="fixed bottom-3 left-3 right-3 sm:hidden z-40 bg-white/95 backdrop-blur-xl border border-slate-200/80 px-2 py-1.5 rounded-3xl flex items-center justify-around shadow-xl shadow-slate-900/10 safe-bottom">
         <button
-          onClick={() => setActiveTab('home')}
+          onClick={() => navigate('/')}
           className={`flex flex-col items-center gap-1 py-1.5 px-2.5 rounded-2xl text-[10px] font-bold transition-all ${
-            activeTab === 'home' 
+            isHomeActive 
               ? 'text-rose-600 bg-rose-50/80 scale-105' 
               : 'text-slate-400 hover:text-slate-600'
           }`}
         >
-          <Home size={19} className={activeTab === 'home' ? 'text-rose-600' : 'text-slate-400'} />
+          <Home size={19} className={isHomeActive ? 'text-rose-600' : 'text-slate-400'} />
           <span>Beranda</span>
         </button>
 
         <button
-          onClick={() => {
-            setStudyInitialSubTab('roadmap');
-            setActiveTab('study');
-          }}
+          onClick={() => navigate('/study')}
           className={`flex flex-col items-center gap-1 py-1.5 px-2.5 rounded-2xl text-[10px] font-bold transition-all ${
-            activeTab === 'study' 
+            isStudyActive 
               ? 'text-rose-600 bg-rose-50/80 scale-105' 
               : 'text-slate-400 hover:text-slate-600'
           }`}
         >
-          <BookOpen size={19} className={activeTab === 'study' ? 'text-rose-600' : 'text-slate-400'} />
+          <BookOpen size={19} className={isStudyActive ? 'text-rose-600' : 'text-slate-400'} />
           <span>Belajar</span>
         </button>
 
         <button
-          onClick={() => setActiveTab('grammar')}
+          onClick={() => navigate('/grammar')}
           className={`flex flex-col items-center gap-1 py-1.5 px-2.5 rounded-2xl text-[10px] font-bold transition-all ${
-            activeTab === 'grammar' 
+            isGrammarActive 
               ? 'text-rose-600 bg-rose-50/80 scale-105' 
               : 'text-slate-400 hover:text-slate-600'
           }`}
         >
-          <GraduationCap size={19} className={activeTab === 'grammar' ? 'text-rose-600' : 'text-slate-400'} />
+          <GraduationCap size={19} className={isGrammarActive ? 'text-rose-600' : 'text-slate-400'} />
           <span>Tata Bahasa</span>
         </button>
 
         <button
-          onClick={() => setActiveTab('official')}
+          onClick={() => navigate('/official')}
           className={`flex flex-col items-center gap-1 py-1.5 px-2.5 rounded-2xl text-[10px] font-bold transition-all ${
-            activeTab === 'official' 
+            isOfficialActive 
               ? 'text-rose-600 bg-rose-50/80 scale-105' 
               : 'text-slate-400 hover:text-slate-600'
           }`}
         >
-          <FileCheck size={19} className={activeTab === 'official' ? 'text-rose-600' : 'text-slate-400'} />
+          <FileCheck size={19} className={isOfficialActive ? 'text-rose-600' : 'text-slate-400'} />
           <span>Ujian HSK</span>
         </button>
 
         <button
-          onClick={() => setActiveTab('profile')}
+          onClick={() => navigate('/profile')}
           className={`flex flex-col items-center gap-1 py-1.5 px-2.5 rounded-2xl text-[10px] font-bold transition-all ${
-            activeTab === 'profile' 
+            isProfileActive 
               ? 'text-rose-600 bg-rose-50/80 scale-105' 
               : 'text-slate-400 hover:text-slate-600'
           }`}
         >
-          <User size={19} className={activeTab === 'profile' ? 'text-rose-600' : 'text-slate-400'} />
+          <User size={19} className={isProfileActive ? 'text-rose-600' : 'text-slate-400'} />
           <span>Akun</span>
         </button>
       </nav>
@@ -184,8 +189,10 @@ function AppContent() {
 
 export default function App() {
   return (
-    <LearningProvider>
-      <AppContent />
-    </LearningProvider>
+    <BrowserRouter>
+      <LearningProvider>
+        <AppContent />
+      </LearningProvider>
+    </BrowserRouter>
   );
 }

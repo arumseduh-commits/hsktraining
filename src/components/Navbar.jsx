@@ -1,4 +1,5 @@
 import React from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { 
   Home,
   BookOpen, 
@@ -13,7 +14,9 @@ import {
 } from 'lucide-react';
 import { useLearning } from '../context/LearningContext';
 
-export default function Navbar({ activeTab, setActiveTab, onOpenIosModal, onOpenDialogueModal, onOpenLevelSelector }) {
+export default function Navbar({ onOpenIosModal, onOpenDialogueModal, onOpenLevelSelector }) {
+  const location = useLocation();
+  const navigate = useNavigate();
   const { 
     totalMastered, 
     words, 
@@ -28,12 +31,19 @@ export default function Navbar({ activeTab, setActiveTab, onOpenIosModal, onOpen
   const progressPercent = Math.round((totalMastered / totalWords) * 100);
 
   const navItems = [
-    { id: 'home', label: 'Beranda', icon: Home },
-    { id: 'study', label: 'Belajar', icon: BookOpen },
-    { id: 'grammar', label: 'Tata Bahasa', icon: GraduationCap },
-    { id: 'official', label: 'Ujian Resmi HSK', icon: FileCheck },
-    { id: 'profile', label: 'Akun', icon: User },
+    { id: 'home', path: '/', label: 'Beranda', icon: Home },
+    { id: 'study', path: '/study', label: 'Belajar', icon: BookOpen },
+    { id: 'grammar', path: '/grammar', label: 'Tata Bahasa', icon: GraduationCap },
+    { id: 'official', path: '/official', label: 'Ujian Resmi HSK', icon: FileCheck },
+    { id: 'profile', path: '/profile', label: 'Akun', icon: User },
   ];
+
+  const isItemActive = (item) => {
+    if (item.id === 'home') {
+      return location.pathname === '/' || location.pathname === '/home';
+    }
+    return location.pathname.startsWith(item.path);
+  };
 
   return (
     <header className="sticky top-0 z-40 glass-nav transition-all">
@@ -43,7 +53,7 @@ export default function Navbar({ activeTab, setActiveTab, onOpenIosModal, onOpen
           {/* Logo & Brand */}
           <div className="flex items-center gap-2.5 select-none shrink-0">
             <div 
-              onClick={() => setActiveTab('home')}
+              onClick={() => navigate('/')}
               className="w-9 h-9 rounded-xl bg-rose-500 text-white font-bold text-lg flex items-center justify-center shadow-sm shadow-rose-500/20 hover:scale-105 transition-transform font-hanzi cursor-pointer"
             >
               汉
@@ -51,7 +61,7 @@ export default function Navbar({ activeTab, setActiveTab, onOpenIosModal, onOpen
             <div>
               <div className="flex items-center gap-1.5">
                 <span 
-                  onClick={() => setActiveTab('home')}
+                  onClick={() => navigate('/')}
                   className="font-bold tracking-tight text-slate-900 text-sm sm:text-base cursor-pointer"
                 >
                   HSK <span className="text-rose-500 font-extrabold">TURBO</span>
@@ -137,9 +147,9 @@ export default function Navbar({ activeTab, setActiveTab, onOpenIosModal, onOpen
 
             {/* User Profile Avatar Pill */}
             <button
-              onClick={() => setActiveTab('profile')}
+              onClick={() => navigate('/profile')}
               className={`flex items-center gap-2 pl-1.5 pr-3 py-1 rounded-full text-xs font-bold transition-all relative ${
-                activeTab === 'profile'
+                location.pathname.startsWith('/profile')
                   ? 'bg-rose-500 text-white shadow-sm shadow-rose-500/25 ring-2 ring-rose-300'
                   : 'bg-slate-900 text-white hover:bg-slate-800'
               }`}
@@ -163,11 +173,11 @@ export default function Navbar({ activeTab, setActiveTab, onOpenIosModal, onOpen
         <div className="hidden sm:flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-2.5 pt-0.5">
           {navItems.map(item => {
             const Icon = item.icon;
-            const isActive = activeTab === item.id;
+            const isActive = isItemActive(item);
             return (
               <button
                 key={item.id}
-                onClick={() => setActiveTab(item.id)}
+                onClick={() => navigate(item.path)}
                 className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-semibold transition-all whitespace-nowrap shrink-0 ${
                   isActive
                     ? 'bg-rose-500 text-white shadow-sm shadow-rose-500/25 font-bold'

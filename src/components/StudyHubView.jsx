@@ -1,15 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { 
   Compass, 
   Layers, 
   Zap, 
   PenTool, 
   Puzzle, 
-  Search,
-  Award,
-  Headphones,
-  Sparkles,
-  Play
+  Search, 
+  Award, 
+  Headphones, 
+  Sparkles, 
+  Play 
 } from 'lucide-react';
 import DayRoadmap from './DayRoadmap';
 import FlashcardMode from './FlashcardMode';
@@ -20,20 +21,17 @@ import VocabListView from './VocabListView';
 import MockExamView from './MockExamView';
 import { useLearning } from '../context/LearningContext';
 
-export default function StudyHubView({ onOpenDialogueModal, initialSubTab = 'roadmap' }) {
+export default function StudyHubView({ onOpenDialogueModal }) {
+  const { mode } = useParams();
+  const navigate = useNavigate();
   const { currentLevel, daysConfig, words } = useLearning();
-  const [studySubTab, setStudySubTab] = useState(initialSubTab);
+  
+  const studySubTab = mode || 'roadmap';
   const [selectedDayParam, setSelectedDayParam] = useState(1);
-
-  React.useEffect(() => {
-    if (initialSubTab) {
-      setStudySubTab(initialSubTab);
-    }
-  }, [initialSubTab]);
 
   const handleSelectDayStudy = (dayNum, targetMode = 'flashcard') => {
     setSelectedDayParam(dayNum);
-    setStudySubTab(targetMode);
+    navigate(`/study/${targetMode}`);
   };
 
   const sprintDaysCount = daysConfig ? daysConfig.length : (currentLevel === 2 ? 8 : 4);
@@ -83,7 +81,7 @@ export default function StudyHubView({ onOpenDialogueModal, initialSubTab = 'roa
           return (
             <button
               key={item.id}
-              onClick={() => setStudySubTab(item.id)}
+              onClick={() => navigate(`/study/${item.id}`)}
               className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
                 isActive
                   ? 'bg-white text-slate-900 font-bold shadow-xs'

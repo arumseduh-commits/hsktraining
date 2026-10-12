@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   Sparkles, 
   ArrowRight, 
@@ -17,20 +18,18 @@ import {
   ChevronRight, 
   TrendingUp, 
   FileCheck, 
-  ChevronDown,
-  Clock,
-  Check
+  ChevronDown, 
+  Clock, 
+  Check 
 } from 'lucide-react';
 import { HSK_LEVELS_CONFIG } from '../data/hskLevelsConfig';
 import { useLearning } from '../context/LearningContext';
 
 export default function HomeScreen({ 
-  onOpenStudyTab, 
-  onOpenExamTab, 
-  onOpenGrammarTab, 
   onOpenDialogueModal, 
   onOpenLevelSelector 
 }) {
+  const navigate = useNavigate();
   const { 
     totalMastered, 
     totalReviewing,
@@ -62,7 +61,7 @@ export default function HomeScreen({
       icon: Calendar,
       color: 'bg-rose-50 text-rose-600 border-rose-100',
       iconBg: 'bg-rose-500 text-white',
-      action: () => onOpenStudyTab && onOpenStudyTab('roadmap')
+      action: () => navigate('/study/roadmap')
     },
     {
       id: 'flashcard',
@@ -72,7 +71,7 @@ export default function HomeScreen({
       icon: Layers,
       color: 'bg-indigo-50 text-indigo-600 border-indigo-100',
       iconBg: 'bg-indigo-500 text-white',
-      action: () => onOpenStudyTab && onOpenStudyTab('flashcard')
+      action: () => navigate('/study/flashcard')
     },
     {
       id: 'drill',
@@ -82,7 +81,7 @@ export default function HomeScreen({
       icon: Zap,
       color: 'bg-amber-50 text-amber-700 border-amber-100',
       iconBg: 'bg-amber-500 text-white',
-      action: () => onOpenStudyTab && onOpenStudyTab('drill')
+      action: () => navigate('/study/drill')
     },
     {
       id: 'writing',
@@ -92,7 +91,7 @@ export default function HomeScreen({
       icon: PenTool,
       color: 'bg-emerald-50 text-emerald-700 border-emerald-100',
       iconBg: 'bg-emerald-500 text-white',
-      action: () => onOpenStudyTab && onOpenStudyTab('writing')
+      action: () => navigate('/study/writing')
     },
     {
       id: 'sentence',
@@ -102,7 +101,7 @@ export default function HomeScreen({
       icon: Puzzle,
       color: 'bg-sky-50 text-sky-700 border-sky-100',
       iconBg: 'bg-sky-500 text-white',
-      action: () => onOpenStudyTab && onOpenStudyTab('sentence')
+      action: () => navigate('/study/sentence')
     },
     {
       id: 'vocab',
@@ -112,7 +111,7 @@ export default function HomeScreen({
       icon: Search,
       color: 'bg-purple-50 text-purple-700 border-purple-100',
       iconBg: 'bg-purple-500 text-white',
-      action: () => onOpenStudyTab && onOpenStudyTab('vocab')
+      action: () => navigate('/study/vocab')
     },
     {
       id: 'dialogue',
@@ -132,7 +131,7 @@ export default function HomeScreen({
       icon: Award,
       color: 'bg-rose-50 text-rose-700 border-rose-200',
       iconBg: 'bg-gradient-to-tr from-rose-500 to-amber-500 text-white',
-      action: () => onOpenExamTab && onOpenExamTab()
+      action: () => navigate('/official')
     },
     {
       id: 'grammar',
@@ -142,7 +141,7 @@ export default function HomeScreen({
       icon: GraduationCap,
       color: 'bg-teal-50 text-teal-700 border-teal-100',
       iconBg: 'bg-teal-600 text-white',
-      action: () => onOpenGrammarTab && onOpenGrammarTab()
+      action: () => navigate('/grammar')
     }
   ];
 
@@ -253,7 +252,7 @@ export default function HomeScreen({
       {/* Latest Official Exam Card (If Available) */}
       {latestOfficialExam && (
         <div 
-          onClick={onOpenExamTab}
+          onClick={() => navigate('/official')}
           className="p-4 rounded-3xl bg-gradient-to-r from-emerald-950 to-slate-900 border border-emerald-500/30 text-white flex items-center justify-between gap-3 shadow-md cursor-pointer hover:border-emerald-400/60 transition-all group"
         >
           <div className="flex items-center gap-3">
