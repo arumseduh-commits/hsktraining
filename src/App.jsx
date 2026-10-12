@@ -7,6 +7,7 @@ import GrammarView from './components/GrammarView';
 import OfficialExamView from './components/OfficialExamView';
 import ProfileView from './components/ProfileView';
 import IosModal from './components/IosModal';
+import DialogueListeningModal from './components/DialogueListeningModal';
 import { 
   Home, 
   BookOpen, 
@@ -18,6 +19,7 @@ import {
 function AppContent() {
   const [activeTab, setActiveTab] = useState('home');
   const [isIosModalOpen, setIsIosModalOpen] = useState(false);
+  const [isDialogueModalOpen, setIsDialogueModalOpen] = useState(false);
 
   return (
     <div className="min-h-screen flex flex-col bg-[#f8fafc] text-slate-900 pb-24 sm:pb-12">
@@ -26,6 +28,7 @@ function AppContent() {
         activeTab={activeTab} 
         setActiveTab={setActiveTab}
         onOpenIosModal={() => setIsIosModalOpen(true)}
+        onOpenDialogueModal={() => setIsDialogueModalOpen(true)}
       />
 
       {/* Main View Router */}
@@ -34,11 +37,14 @@ function AppContent() {
           <HomeScreen 
             onOpenStudyTab={() => setActiveTab('study')}
             onOpenExamTab={() => setActiveTab('official')}
+            onOpenDialogueModal={() => setIsDialogueModalOpen(true)}
           />
         )}
 
         {activeTab === 'study' && (
-          <StudyHubView />
+          <StudyHubView 
+            onOpenDialogueModal={() => setIsDialogueModalOpen(true)}
+          />
         )}
 
         {activeTab === 'grammar' && (
@@ -53,6 +59,17 @@ function AppContent() {
           <ProfileView />
         )}
       </main>
+
+      {/* Modal Dialogues */}
+      <IosModal 
+        isOpen={isIosModalOpen} 
+        onClose={() => setIsIosModalOpen(false)} 
+      />
+
+      <DialogueListeningModal 
+        isOpen={isDialogueModalOpen} 
+        onClose={() => setIsDialogueModalOpen(false)} 
+      />
 
       {/* Mobile Floating Bottom Navigation Dock */}
       <nav className="fixed bottom-3 left-3 right-3 sm:hidden z-40 bg-white/95 backdrop-blur-xl border border-slate-200/80 px-2 py-1.5 rounded-3xl flex items-center justify-around shadow-xl shadow-slate-900/10 safe-bottom">

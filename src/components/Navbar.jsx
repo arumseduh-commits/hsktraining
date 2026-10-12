@@ -7,11 +7,12 @@ import {
   User, 
   Volume2, 
   Smartphone,
-  Sparkles
+  Sparkles,
+  Headphones
 } from 'lucide-react';
 import { useLearning } from '../context/LearningContext';
 
-export default function Navbar({ activeTab, setActiveTab, onOpenIosModal }) {
+export default function Navbar({ activeTab, setActiveTab, onOpenIosModal, onOpenDialogueModal }) {
   const { 
     totalMastered, 
     words, 
@@ -95,6 +96,17 @@ export default function Navbar({ activeTab, setActiveTab, onOpenIosModal }) {
             >
               <Smartphone size={13} className="text-rose-500" />
               <span>iOS</span>
+            </button>
+
+            {/* Listening Dialogue Pill */}
+            <button
+              onClick={onOpenDialogueModal}
+              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full text-xs font-semibold bg-indigo-50 hover:bg-indigo-100/80 text-indigo-700 transition-all active:scale-95 border border-indigo-200/60 shadow-2xs"
+              title="Coba Audio Percakapan Cowok & Cewek (18 Detik)"
+            >
+              <Headphones size={13} className="text-indigo-600" />
+              <span className="hidden md:inline font-bold">Listening 18s</span>
+              <span className="md:hidden text-[11px] font-bold">18s</span>
             </button>
 
             {/* User Profile Avatar Pill */}

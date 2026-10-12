@@ -11,12 +11,14 @@ import {
   Zap,
   TrendingUp,
   Info,
-  GraduationCap
+  GraduationCap,
+  Headphones,
+  Play
 } from 'lucide-react';
 import { HSK_LEVELS_CONFIG, TOTAL_HSK9_WORDS } from '../data/hskLevelsConfig';
 import { useLearning } from '../context/LearningContext';
 
-export default function HomeScreen({ onSelectLevel, onOpenStudyTab, onOpenExamTab }) {
+export default function HomeScreen({ onSelectLevel, onOpenStudyTab, onOpenExamTab, onOpenDialogueModal }) {
   const { 
     totalMastered, 
     words, 
@@ -99,6 +101,31 @@ export default function HomeScreen({ onSelectLevel, onOpenStudyTab, onOpenExamTa
           <div className="p-2 rounded-xl bg-white/5 border border-white/10">
             <span className="text-[10px] text-slate-400 block font-semibold">Mahir (7-9)</span>
             <span className="text-xs font-bold text-emerald-300">11.092 Kata</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Listening Dialogue Demo Feature Banner */}
+      <div 
+        onClick={onOpenDialogueModal}
+        className="p-4 sm:p-5 rounded-3xl bg-gradient-to-r from-indigo-900 via-indigo-950 to-slate-900 text-white border border-indigo-500/30 shadow-lg shadow-indigo-950/20 flex items-center justify-between gap-4 cursor-pointer hover:border-indigo-400/60 transition-all group active:scale-[0.99]"
+      >
+        <div className="flex items-center gap-3.5">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-rose-500 to-amber-400 flex items-center justify-center text-white font-bold text-lg shadow-md shrink-0 group-hover:scale-105 transition-transform">
+            <Headphones size={22} className="text-white" />
+          </div>
+          <div>
+            <div className="inline-flex items-center gap-1.5 text-[10px] font-bold text-rose-300 bg-rose-500/20 px-2 py-0.5 rounded-full mb-1">
+              <Sparkles size={11} className="text-rose-400" />
+              <span>Demo Audio Asli Beijing (18 Detik)</span>
+            </div>
+            <h4 className="text-sm font-bold text-white leading-snug">Listening Percakapan Pria & Wanita</h4>
+            <p className="text-xs text-indigo-200/80 line-clamp-1">Simulasi dialog stasiun kereta api + kuis pemahaman resmi HSK</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <div className="w-9 h-9 rounded-xl bg-rose-500 group-hover:bg-rose-600 text-white flex items-center justify-center transition-colors shadow-md">
+            <Play size={15} className="fill-white ml-0.5" />
           </div>
         </div>
       </div>
