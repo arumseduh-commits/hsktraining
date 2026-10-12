@@ -14,8 +14,8 @@ import {
 import { HSK_LEVELS_CONFIG } from '../data/hskLevelsConfig';
 import { useLearning } from '../context/LearningContext';
 
-export default function LevelSelectorModal({ isOpen, onClose, isFirstTime = false }) {
-  const { currentLevel, setCurrentLevel, setHasSelectedLevel } = useLearning();
+export default function LevelSelectorModal({ isOpen, onClose, isFirstTime = false, onProceedToTarget }) {
+  const { currentLevel, setCurrentLevel, setHasSelectedLevel, dailyTarget } = useLearning();
   const [selectedCategory, setSelectedCategory] = useState('all');
 
   useEffect(() => {
@@ -32,8 +32,12 @@ export default function LevelSelectorModal({ isOpen, onClose, isFirstTime = fals
 
   const handleSelectLevel = (levelNum) => {
     setCurrentLevel(levelNum);
-    if (setHasSelectedLevel) setHasSelectedLevel(true);
-    onClose();
+    if (isFirstTime && onProceedToTarget) {
+      onProceedToTarget(levelNum);
+    } else {
+      if (setHasSelectedLevel) setHasSelectedLevel(true);
+      onClose();
+    }
   };
 
   const filteredLevels = selectedCategory === 'all'
@@ -54,14 +58,14 @@ export default function LevelSelectorModal({ isOpen, onClose, isFirstTime = fals
           <div className="space-y-1">
             <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-600 text-[11px] font-bold border border-rose-100">
               <Sparkles size={11} />
-              <span>Standar Baru HSK 3.0</span>
+              <span>{isFirstTime ? 'Langkah 1 dari 2 • Tingkat HSK' : 'Standar Baru HSK 3.0'}</span>
             </div>
             <h3 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight">
               {isFirstTime ? 'Pilih Tingkat HSK Awal Anda' : 'Ganti Tingkat HSK Belajar'}
             </h3>
             <p className="text-xs text-slate-500">
               {isFirstTime 
-                ? 'Pilih tingkat yang ingin Anda fokuskan saat ini. Anda dapat menggantinya kapan saja.'
+                ? 'Pilih jenjang yang ingin Anda mulai sekarang. Selanjutnya Anda akan memilih target belajar harian.'
                 : 'Pilih jenjang HSK untuk mengubah fokus dashboard, kamus, dan modul latihan.'}
             </p>
           </div>
@@ -139,7 +143,7 @@ export default function LevelSelectorModal({ isOpen, onClose, isFirstTime = fals
                     <div className="flex items-center gap-3 text-[10px] text-slate-400 font-medium mt-1">
                       <span>📚 {lvl.totalWords.toLocaleString()} Kata</span>
                       <span>✍️ {lvl.hanziCount} Hanzi</span>
-                      <span>⚡ {lvl.sprintProtocol.split('(')[0]}</span>
+                      <span>⚡ ~{Math.ceil(lvl.totalWords / (dailyTarget || 15))} Hari ({dailyTarget || 15} kata/hari)</span>
                     </div>
                   </div>
                 </div>

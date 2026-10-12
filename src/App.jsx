@@ -10,6 +10,7 @@ import ProfileView from './components/ProfileView';
 import IosModal from './components/IosModal';
 import DialogueListeningModal from './components/DialogueListeningModal';
 import LevelSelectorModal from './components/LevelSelectorModal';
+import DailyTargetModal from './components/DailyTargetModal';
 import LoginScreen from './components/LoginScreen';
 import { 
   Home, 
@@ -22,11 +23,22 @@ import {
 function AppContent() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, authLoading, hasSelectedLevel } = useLearning();
+  const { user, authLoading, hasSelectedLevel, setHasSelectedLevel } = useLearning();
 
   const [isIosModalOpen, setIsIosModalOpen] = useState(false);
   const [isDialogueModalOpen, setIsDialogueModalOpen] = useState(false);
   const [isLevelSelectorOpen, setIsLevelSelectorOpen] = useState(false);
+
+  // Two-step onboarding: Step 1 = 'level', Step 2 = 'target'
+  const [onboardingStep, setOnboardingStep] = useState(null);
+
+  React.useEffect(() => {
+    if (user && !hasSelectedLevel && !onboardingStep) {
+      setOnboardingStep('level');
+    } else if (hasSelectedLevel && onboardingStep) {
+      setOnboardingStep(null);
+    }
+  }, [user, hasSelectedLevel, onboardingStep]);
 
   // Splash screen saat mengecek sesi login Supabase
   if (authLoading) {
@@ -48,8 +60,6 @@ function AppContent() {
     return <LoginScreen />;
   }
 
-  // First-time onboarding: jika belum pernah memilih level HSK
-  const shouldShowOnboarding = !hasSelectedLevel;
 
   // Active status helpers for bottom navigation dock
   const isHomeActive = location.pathname === '/' || location.pathname === '/home';
@@ -114,11 +124,23 @@ function AppContent() {
         onClose={() => setIsDialogueModalOpen(false)} 
       />
 
-      {/* Level Selector Modal (First-time onboarding or Manual Switch) */}
+      {/* Level Selector Modal (Step 1: First-time onboarding or Manual Switch) */}
       <LevelSelectorModal 
-        isOpen={isLevelSelectorOpen || shouldShowOnboarding}
-        isFirstTime={shouldShowOnboarding}
+        isOpen={isLevelSelectorOpen || onboardingStep === 'level'}
+        isFirstTime={onboardingStep === 'level'}
         onClose={() => setIsLevelSelectorOpen(false)}
+        onProceedToTarget={() => setOnboardingStep('target')}
+      />
+
+      {/* Daily Target Modal (Step 2: First-time onboarding) */}
+      <DailyTargetModal 
+        isOpen={onboardingStep === 'target'}
+        isFirstTime={true}
+        onClose={() => setOnboardingStep(null)}
+        onCompleteOnboarding={() => {
+          setHasSelectedLevel(true);
+          setOnboardingStep(null);
+        }}
       />
 
       {/* Mobile Floating Bottom Navigation Dock */}

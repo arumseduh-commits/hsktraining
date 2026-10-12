@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { useLearning } from '../context/LearningContext';
 
-export default function DailyTargetModal({ isOpen, onClose }) {
+export default function DailyTargetModal({ isOpen, onClose, isFirstTime = false, onCompleteOnboarding }) {
   const { dailyTarget, setCustomDailyTarget, currentLevel, words } = useLearning();
   const [tempTarget, setTempTarget] = useState(dailyTarget);
 
@@ -26,11 +26,11 @@ export default function DailyTargetModal({ isOpen, onClose }) {
 
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (e.key === 'Escape' && isOpen) onClose();
+      if (e.key === 'Escape' && !isFirstTime && isOpen) onClose();
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, isFirstTime]);
 
   if (!isOpen) return null;
 
@@ -74,12 +74,16 @@ export default function DailyTargetModal({ isOpen, onClose }) {
 
   const handleSave = () => {
     setCustomDailyTarget(tempTarget);
-    onClose();
+    if (isFirstTime && onCompleteOnboarding) {
+      onCompleteOnboarding(tempTarget);
+    } else {
+      onClose();
+    }
   };
 
   return createPortal(
     <div 
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      onClick={(e) => { if (!isFirstTime && e.target === e.currentTarget) onClose(); }}
       className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-6 bg-slate-950/75 backdrop-blur-md overflow-y-auto animate-fade-in"
     >
       <div 
@@ -91,22 +95,26 @@ export default function DailyTargetModal({ isOpen, onClose }) {
           <div className="space-y-1">
             <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-600 text-[11px] font-bold border border-rose-100">
               <Flame size={12} className="text-rose-500 fill-rose-500" />
-              <span>Target & Absensi Harian</span>
+              <span>{isFirstTime ? 'Langkah 2 dari 2 • Target Harian' : 'Target & Absensi Harian'}</span>
             </div>
             <h3 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight">
-              Atur Target Belajar Mandiri
+              {isFirstTime ? 'Tentukan Target Belajar Harian Anda' : 'Atur Target Belajar Mandiri'}
             </h3>
             <p className="text-xs text-slate-500">
-              Pilih ritme belajar yang cocok untuk Anda. Anda tetap bisa mengerjakan lebih banyak kata tanpa batasan!
+              {isFirstTime 
+                ? `Pilih target kosakata per hari untuk HSK ${currentLevel}. Anda tetap bebas belajar lebih banyak tanpa batasan!`
+                : 'Pilih ritme belajar yang cocok untuk Anda. Anda tetap bisa mengerjakan lebih banyak kata tanpa batasan!'}
             </p>
           </div>
 
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors cursor-pointer shrink-0"
-          >
-            <X size={18} />
-          </button>
+          {!isFirstTime && (
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors cursor-pointer shrink-0"
+            >
+              <X size={18} />
+            </button>
+          )}
         </div>
 
         {/* Preset Cards Grid */}
@@ -192,22 +200,35 @@ export default function DailyTargetModal({ isOpen, onClose }) {
         </div>
 
         {/* Modal Buttons */}
-        <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex-1 py-2.5 px-4 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
-          >
-            Batal
-          </button>
-          <button
-            type="button"
-            onClick={handleSave}
-            className="flex-1 py-2.5 px-4 rounded-xl text-xs font-bold bg-rose-500 hover:bg-rose-600 text-white transition-all shadow-sm shadow-rose-500/25 active:scale-95 cursor-pointer flex items-center justify-center gap-1.5"
-          >
-            <Check size={14} />
-            <span>Simpan Target ({tempTarget} Kata)</span>
-          </button>
+        <div className="pt-2 border-t border-slate-100">
+          {isFirstTime ? (
+            <button
+              type="button"
+              onClick={handleSave}
+              className="w-full py-3.5 px-5 rounded-2xl text-xs sm:text-sm font-bold bg-gradient-to-r from-rose-500 to-amber-500 hover:from-rose-600 hover:to-amber-600 text-white transition-all shadow-md shadow-rose-500/25 active:scale-95 cursor-pointer flex items-center justify-center gap-2"
+            >
+              <span>Simpan & Mulai Belajar HSK {currentLevel}</span>
+              <Rocket size={15} />
+            </button>
+          ) : (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex-1 py-2.5 px-4 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleSave}
+                className="flex-1 py-2.5 px-4 rounded-xl text-xs font-bold bg-rose-500 hover:bg-rose-600 text-white transition-all shadow-sm shadow-rose-500/25 active:scale-95 cursor-pointer flex items-center justify-center gap-1.5"
+              >
+                <Check size={14} />
+                <span>Simpan Target ({tempTarget} Kata)</span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>,

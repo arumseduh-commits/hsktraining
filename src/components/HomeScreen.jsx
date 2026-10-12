@@ -42,14 +42,15 @@ export default function HomeScreen({
     currentLevel, 
     markFirst150Mastered,
     officialHistory,
-    user
+    user,
+    dailyTarget
   } = useLearning();
 
   const currentLevelConfig = HSK_LEVELS_CONFIG.find(l => l.level === currentLevel) || HSK_LEVELS_CONFIG[0];
   const totalWords = words?.length || currentLevelConfig.totalWords;
   const progressPercent = totalWords > 0 ? Math.round((totalMastered / totalWords) * 100) : 0;
   const unseenWords = Math.max(0, totalWords - totalMastered - totalReviewing);
-  const daysCount = daysConfig?.length || (currentLevel === 2 ? 8 : 4);
+  const calculatedDays = dailyTarget > 0 ? Math.ceil(totalWords / dailyTarget) : (daysConfig?.length || (currentLevel === 2 ? 8 : 4));
 
   // Latest Official Exam Attempt
   const latestOfficialExam = officialHistory && officialHistory.length > 0 ? officialHistory[0] : null;
@@ -58,8 +59,8 @@ export default function HomeScreen({
   const studyTools = [
     {
       id: 'roadmap',
-      title: `Sprint Roadmap (${daysCount} Hari)`,
-      desc: `Target terstruktur ${daysCount} hari sprint (${Math.ceil(totalWords / daysCount)} kata/hari) menuju kelulusan.`,
+      title: `Sprint Roadmap (~${calculatedDays} Hari)`,
+      desc: `Target mandiri ${dailyTarget} kata/hari menuju kelulusan HSK ${currentLevel} (~${calculatedDays} hari).`,
       tag: 'Jadwal Harian',
       icon: Calendar,
       color: 'bg-rose-50 text-rose-600 border-rose-100',
@@ -220,7 +221,7 @@ export default function HomeScreen({
         <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-300 pt-1 border-t border-white/10">
           <div className="flex items-center gap-1.5">
             <Clock size={13} className="text-rose-400" />
-            <span>Target Rekomendasi: <strong>{currentLevelConfig.sprintProtocol}</strong></span>
+            <span>Target Mandiri: <strong>{dailyTarget} kata/hari (~{calculatedDays} Hari)</strong></span>
           </div>
           <button
             onClick={onOpenLevelSelector}

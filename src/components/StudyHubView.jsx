@@ -24,7 +24,7 @@ import { useLearning } from '../context/LearningContext';
 export default function StudyHubView({ onOpenDialogueModal }) {
   const { mode } = useParams();
   const navigate = useNavigate();
-  const { currentLevel, daysConfig, words } = useLearning();
+  const { currentLevel, daysConfig, words, dailyTarget } = useLearning();
   
   const studySubTab = mode || 'roadmap';
   const [selectedDayParam, setSelectedDayParam] = useState(1);
@@ -34,11 +34,11 @@ export default function StudyHubView({ onOpenDialogueModal }) {
     navigate(`/study/${targetMode}`);
   };
 
-  const sprintDaysCount = daysConfig ? daysConfig.length : (currentLevel === 2 ? 8 : 4);
   const wordsCount = words ? words.length : (currentLevel === 2 ? 772 : 500);
+  const calculatedDays = dailyTarget > 0 ? Math.ceil(wordsCount / dailyTarget) : (daysConfig ? daysConfig.length : (currentLevel === 2 ? 8 : 4));
 
   const subNavItems = [
-    { id: 'roadmap', label: `Sprint ${sprintDaysCount} Hari`, icon: Compass },
+    { id: 'roadmap', label: `Roadmap (~${calculatedDays} Hari)`, icon: Compass },
     { id: 'flashcard', label: 'Flashcard', icon: Layers },
     { id: 'dialogue', label: 'Listening Dialog 🎧', icon: Headphones },
     { id: 'drill', label: 'Speed Drill', icon: Zap },

@@ -22,13 +22,18 @@ export default function DayRoadmap({ onSelectDayStudy }) {
     markFirst150Mastered,
     resetAllProgress,
     daysConfig,
-    currentLevel
+    currentLevel,
+    dailyTarget
   } = useLearning();
 
   const sprintDays = daysConfig || DAYS_CONFIG;
 
   const totalWords = words.length;
   const progressPercent = Math.round((totalMastered / totalWords) * 100);
+
+  // Dynamic calculation based on user's chosen dailyTarget
+  const targetPerDay = dailyTarget || Math.round(totalWords / sprintDays.length);
+  const calculatedDays = targetPerDay > 0 ? Math.ceil(totalWords / targetPerDay) : sprintDays.length;
 
   // SVG Circular progress math
   const circleRadius = 40;
@@ -45,13 +50,13 @@ export default function DayRoadmap({ onSelectDayStudy }) {
             <div className="space-y-2 max-w-md">
               <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/10 text-rose-300 text-[11px] font-semibold backdrop-blur-md">
                 <Sparkles size={12} className="text-rose-400" />
-                <span>Sprint HSK {currentLevel} Standar 3.0</span>
+                <span>Target HSK {currentLevel}: ~{calculatedDays} Hari</span>
               </div>
               <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white leading-tight">
-                Kuasai {totalWords} Kosakata HSK {currentLevel} dalam <span className="text-transparent bg-clip-text bg-gradient-to-r from-rose-400 to-amber-300">{sprintDays.length} Hari</span>
+                Kuasai {totalWords} Kosakata HSK {currentLevel} dalam <span className="text-transparent bg-clip-text bg-gradient-to-r from-rose-400 to-amber-300">~{calculatedDays} Hari</span>
               </h2>
               <p className="text-xs sm:text-sm text-slate-300 font-normal leading-relaxed">
-                Kurikulum terstruktur ~{Math.round(totalWords / sprintDays.length)} kata per hari dengan metode Active Recall, latihan refleks audio, dan kanvas Tian Zi Ge.
+                Kurikulum terstruktur {targetPerDay} kata per hari dengan metode Active Recall, latihan refleks audio, dan kanvas Tian Zi Ge.
               </p>
             </div>
 
@@ -104,7 +109,7 @@ export default function DayRoadmap({ onSelectDayStudy }) {
             <div>
               <span className="text-[11px] text-slate-400 font-medium block">Target Harian</span>
               <span className="text-base sm:text-lg font-bold text-amber-400 font-mono">
-                ~{Math.round(totalWords / sprintDays.length)} kata/hari
+                {targetPerDay} kata/hari
               </span>
             </div>
           </div>
@@ -157,10 +162,10 @@ export default function DayRoadmap({ onSelectDayStudy }) {
                 </div>
 
                 <h3 className="text-base font-bold text-slate-900 leading-snug">
-                  Sprint {sprintDays.length} Hari HSK {currentLevel}
+                  Target ~{calculatedDays} Hari HSK {currentLevel}
                 </h3>
                 <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
-                  Target harian: pelajari ~{Math.round(totalWords / sprintDays.length)} kosakata per hari dengan Flashcard dan Speed Drill.
+                  Target harian: pelajari {targetPerDay} kosakata per hari dengan Flashcard dan Speed Drill.
                 </p>
               </div>
 
@@ -180,7 +185,7 @@ export default function DayRoadmap({ onSelectDayStudy }) {
         <div className="flex items-center justify-between px-1">
           <h3 className="text-sm font-bold tracking-tight text-slate-800 flex items-center gap-2">
             <Calendar size={16} className="text-rose-500" />
-            <span>Rencana Belajar {sprintDays.length} Hari (~{Math.round(totalWords / sprintDays.length)} Kata/Hari)</span>
+            <span>Rencana Kurikulum HSK {currentLevel} (Target {targetPerDay} Kata/Hari • ~{calculatedDays} Hari)</span>
           </h3>
 
           <button
