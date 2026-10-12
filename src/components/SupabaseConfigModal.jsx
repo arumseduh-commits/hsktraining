@@ -77,13 +77,11 @@ create policy "Users can update own progress" on public.hsk_user_progress for up
   };
 
   const handleReset = () => {
-    if (window.confirm("Hapus konfigurasi Supabase kustom dari browser ini?")) {
-      clearCustomSupabaseConfig();
-      setUrl('');
-      setAnonKey('');
-      setStatusMessage({ type: 'info', text: 'Konfigurasi kustom dihapus.' });
-      if (onConfigSaved) onConfigSaved();
-    }
+    clearCustomSupabaseConfig();
+    setUrl('');
+    setAnonKey('');
+    setStatusMessage({ type: 'info', text: 'Konfigurasi kustom dihapus.' });
+    if (onConfigSaved) onConfigSaved();
   };
 
   return (

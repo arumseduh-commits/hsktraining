@@ -13,6 +13,7 @@ import {
 import { useLearning } from '../context/LearningContext';
 import { TOTAL_HSK9_WORDS } from '../data/hskLevelsConfig';
 import OfficialCertificateModal from './OfficialCertificateModal';
+import ConfirmModal from './ConfirmModal';
 
 export default function ProfileView() {
   const { 
@@ -33,6 +34,8 @@ export default function ProfileView() {
   const [inputName, setInputName] = useState(candidateName);
   const [isSavedNotice, setIsSavedNotice] = useState(false);
   const [selectedCert, setSelectedCert] = useState(null);
+  const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+  const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
 
   const handleSaveName = (e) => {
     e.preventDefault();
@@ -87,7 +90,7 @@ export default function ProfileView() {
 
           {user && (
             <button
-              onClick={logout}
+              onClick={() => setIsLogoutModalOpen(true)}
               className="px-3.5 py-2 bg-slate-100 hover:bg-rose-50 text-slate-600 hover:text-rose-600 font-bold rounded-2xl text-xs flex items-center gap-1.5 transition-colors border border-slate-200/60 shrink-0 cursor-pointer active:scale-95"
               title="Keluar dari akun Google"
             >
@@ -285,7 +288,7 @@ export default function ProfileView() {
         <div className="pt-2 flex items-center justify-between text-xs">
           <span className="font-medium text-slate-600">Reset Semua Data Belajar:</span>
           <button
-            onClick={resetAllProgress}
+            onClick={() => setIsResetModalOpen(true)}
             className="px-3 py-1.5 text-rose-600 hover:bg-rose-50 rounded-xl font-bold border border-rose-200 transition-colors cursor-pointer"
           >
             Reset Progress
@@ -300,6 +303,30 @@ export default function ProfileView() {
           onClose={() => setSelectedCert(null)}
         />
       )}
+
+      {/* Dynamic Reset Confirmation Modal */}
+      <ConfirmModal
+        isOpen={isResetModalOpen}
+        onClose={() => setIsResetModalOpen(false)}
+        onConfirm={resetAllProgress}
+        title="Reset Riwayat Belajar?"
+        message={`Apakah Anda yakin ingin mereset seluruh progres hafalan kata HSK ${currentLevel}? Tindakan ini akan menghapus kata yang telah dikuasai dan nilai latihan pada level ini.`}
+        confirmText="Ya, Reset Semua"
+        cancelText="Batal"
+        type="danger"
+      />
+
+      {/* Dynamic Logout Confirmation Modal */}
+      <ConfirmModal
+        isOpen={isLogoutModalOpen}
+        onClose={() => setIsLogoutModalOpen(false)}
+        onConfirm={logout}
+        title="Keluar dari Akun Google?"
+        message="Seluruh progres belajar Anda telah tersimpan aman di cloud. Anda dapat masuk kembali dengan akun Google kapan saja tanpa kehilangan data."
+        confirmText="Keluar"
+        cancelText="Batal"
+        type="warning"
+      />
     </div>
   );
 }

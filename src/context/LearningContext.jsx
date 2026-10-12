@@ -375,11 +375,9 @@ export function LearningProvider({ children }) {
   };
 
   const resetAllProgress = () => {
-    if (window.confirm("Apakah Anda yakin ingin mereset seluruh riwayat progres belajar di level ini?")) {
-      setWordStatus({});
-      setExamScores([]);
-      scheduleSilentCloudSync();
-    }
+    setWordStatus({});
+    setExamScores([]);
+    scheduleSilentCloudSync();
   };
 
   const recordExamScore = (score, totalQuestions) => {
