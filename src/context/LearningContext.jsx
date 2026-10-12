@@ -40,6 +40,45 @@ export function LearningProvider({ children }) {
     }
   });
 
+  // Favorited vocabulary words for the active level
+  const [favorites, setFavorites] = useState(() => {
+    try {
+      const saved = localStorage.getItem(`${STORAGE_KEY}_favorites_lvl_${currentLevel}`);
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  const toggleFavorite = useCallback((wordId) => {
+    let isNowFav = false;
+    setFavorites(prev => {
+      const next = { ...prev };
+      if (next[wordId]) {
+        delete next[wordId];
+        isNowFav = false;
+      } else {
+        next[wordId] = true;
+        isNowFav = true;
+      }
+      try {
+        localStorage.setItem(`${STORAGE_KEY}_favorites_lvl_${currentLevel}`, JSON.stringify(next));
+      } catch (e) {
+        console.error(e);
+      }
+      return next;
+    });
+    return isNowFav;
+  }, [currentLevel]);
+
+  const isFavorite = useCallback((wordId) => {
+    return Boolean(favorites[wordId]);
+  }, [favorites]);
+
+  const favoriteCount = useMemo(() => {
+    return Object.keys(favorites).length;
+  }, [favorites]);
+
   const [activeDay, setActiveDay] = useState(1);
   const [audioSpeed, setAudioSpeed] = useState(0.85);
 
@@ -472,6 +511,13 @@ export function LearningProvider({ children }) {
     }
 
     try {
+      const savedFavs = localStorage.getItem(`${STORAGE_KEY}_favorites_lvl_${currentLevel}`);
+      setFavorites(savedFavs ? JSON.parse(savedFavs) : {});
+    } catch {
+      setFavorites({});
+    }
+
+    try {
       localStorage.setItem(`${STORAGE_KEY}_current_level`, currentLevel.toString());
     } catch (e) {
       console.error(e);
@@ -742,6 +788,12 @@ export function LearningProvider({ children }) {
   const resetAllProgress = () => {
     setWordStatus({});
     setExamScores([]);
+    setFavorites({});
+    try {
+      localStorage.removeItem(`${STORAGE_KEY}_favorites_lvl_${currentLevel}`);
+    } catch (e) {
+      console.error(e);
+    }
     scheduleSilentCloudSync();
   };
 
@@ -805,6 +857,10 @@ export function LearningProvider({ children }) {
         words,
         daysConfig,
         currentActiveDay,
+        favorites,
+        toggleFavorite,
+        isFavorite,
+        favoriteCount,
         wordStatus,
         updateWordStatus,
         markFirst150Mastered,

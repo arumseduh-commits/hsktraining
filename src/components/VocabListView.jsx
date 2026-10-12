@@ -3,13 +3,23 @@ import {
   Search, 
   Volume2, 
   Check, 
-  X
+  X,
+  Star
 } from 'lucide-react';
 import { useLearning } from '../context/LearningContext';
 import { speakChinese } from '../utils/speech';
 
 export default function VocabListView() {
-  const { words, wordStatus, updateWordStatus, audioSpeed, daysConfig } = useLearning();
+  const { 
+    words, 
+    wordStatus, 
+    updateWordStatus, 
+    audioSpeed, 
+    daysConfig,
+    toggleFavorite,
+    isFavorite,
+    favoriteCount
+  } = useLearning();
   const sprintDaysList = daysConfig ? daysConfig.map(d => d.day) : [1, 2, 3, 4];
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -21,6 +31,7 @@ export default function VocabListView() {
       if (selectedDay !== 'all' && w.day !== Number(selectedDay)) return false;
 
       const status = wordStatus[w.id] || 'unseen';
+      if (selectedStatus === 'favorites' && !isFavorite(w.id)) return false;
       if (selectedStatus === 'mastered' && status !== 'mastered') return false;
       if (selectedStatus === 'reviewing' && status !== 'reviewing') return false;
 
@@ -34,7 +45,7 @@ export default function VocabListView() {
 
       return true;
     });
-  }, [words, selectedDay, selectedStatus, searchQuery, wordStatus]);
+  }, [words, selectedDay, selectedStatus, searchQuery, wordStatus, isFavorite]);
 
   const toggleMastered = (id) => {
     const current = wordStatus[id];
@@ -94,24 +105,35 @@ export default function VocabListView() {
           <div className="flex items-center gap-1">
             <button
               onClick={() => setSelectedStatus('all')}
-              className={`px-2.5 py-1 rounded-xl text-xs font-semibold transition-all ${
-                selectedStatus === 'all' ? 'bg-slate-200/80 text-slate-800' : 'text-slate-400'
+              className={`px-2.5 py-1 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                selectedStatus === 'all' ? 'bg-slate-200/80 text-slate-800' : 'text-slate-400 hover:bg-slate-50'
               }`}
             >
               Semua
             </button>
             <button
+              onClick={() => setSelectedStatus(s => s === 'favorites' ? 'all' : 'favorites')}
+              className={`px-2.5 py-1 rounded-xl text-xs font-semibold transition-all flex items-center gap-1 cursor-pointer ${
+                selectedStatus === 'favorites'
+                  ? 'bg-amber-500 text-white font-bold shadow-xs'
+                  : 'text-slate-500 hover:bg-slate-100'
+              }`}
+            >
+              <Star size={11} className={selectedStatus === 'favorites' ? 'fill-white' : 'fill-amber-400 text-amber-500'} />
+              <span>Favorit{favoriteCount > 0 ? ` (${favoriteCount})` : ''}</span>
+            </button>
+            <button
               onClick={() => setSelectedStatus('mastered')}
-              className={`px-2.5 py-1 rounded-xl text-xs font-semibold transition-all ${
-                selectedStatus === 'mastered' ? 'bg-emerald-100 text-emerald-800 font-bold' : 'text-slate-400'
+              className={`px-2.5 py-1 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                selectedStatus === 'mastered' ? 'bg-emerald-100 text-emerald-800 font-bold' : 'text-slate-400 hover:bg-slate-50'
               }`}
             >
               Dikuasai
             </button>
             <button
               onClick={() => setSelectedStatus('reviewing')}
-              className={`px-2.5 py-1 rounded-xl text-xs font-semibold transition-all ${
-                selectedStatus === 'reviewing' ? 'bg-amber-100 text-amber-800 font-bold' : 'text-slate-400'
+              className={`px-2.5 py-1 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                selectedStatus === 'reviewing' ? 'bg-amber-100 text-amber-800 font-bold' : 'text-slate-400 hover:bg-slate-50'
               }`}
             >
               Diulang
@@ -148,8 +170,17 @@ export default function VocabListView() {
                       {w.hanzi}
                     </span>
                     <button
+                      onClick={() => toggleFavorite(w.id)}
+                      className={`p-1 rounded-full transition-colors cursor-pointer ${
+                        isFavorite(w.id) ? 'text-amber-500' : 'text-slate-300 hover:text-amber-500'
+                      }`}
+                      title={isFavorite(w.id) ? 'Hapus dari Favorit' : 'Tambah ke Favorit'}
+                    >
+                      <Star size={15} className={isFavorite(w.id) ? 'fill-amber-400' : ''} />
+                    </button>
+                    <button
                       onClick={() => speakChinese(w.hanzi, audioSpeed)}
-                      className="p-1 rounded-full text-slate-400 hover:text-rose-500 transition-colors"
+                      className="p-1 rounded-full text-slate-400 hover:text-rose-500 transition-colors cursor-pointer"
                       title="Dengar Suara"
                     >
                       <Volume2 size={15} />
