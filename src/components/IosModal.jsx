@@ -1,15 +1,22 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { Share, PlusSquare, Smartphone, X, CheckCircle2 } from 'lucide-react';
 
 export default function IosModal({ isOpen, onClose }) {
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-fade-in">
-      <div className="bg-white rounded-[32px] max-w-sm w-full p-6 shadow-2xl border border-slate-100 relative">
+  return createPortal(
+    <div 
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md animate-fade-in"
+    >
+      <div 
+        className="bg-white rounded-[32px] max-w-sm w-full p-6 shadow-2xl border border-slate-100 relative animate-scale-up"
+        onClick={(e) => e.stopPropagation()}
+      >
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition-colors"
+          className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition-colors cursor-pointer"
         >
           <X size={18} />
         </button>
@@ -62,11 +69,12 @@ export default function IosModal({ isOpen, onClose }) {
 
         <button
           onClick={onClose}
-          className="mt-4 w-full py-3 bg-slate-900 text-white rounded-2xl font-bold text-xs hover:bg-slate-800 transition-colors"
+          className="mt-4 w-full py-3 bg-slate-900 text-white rounded-2xl font-bold text-xs hover:bg-slate-800 transition-colors cursor-pointer"
         >
           Siap Belajar
         </button>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

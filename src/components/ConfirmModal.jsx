@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { AlertTriangle, AlertCircle, Info, X } from 'lucide-react';
 
 export default function ConfirmModal({
@@ -44,8 +45,11 @@ export default function ConfirmModal({
   const config = typeConfig[type] || typeConfig.danger;
   const Icon = config.icon;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-fade-in">
+  return createPortal(
+    <div 
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md animate-fade-in"
+    >
       <div 
         className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-100 space-y-4 my-8 transform transition-all animate-scale-up"
         onClick={(e) => e.stopPropagation()}
@@ -94,6 +98,7 @@ export default function ConfirmModal({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

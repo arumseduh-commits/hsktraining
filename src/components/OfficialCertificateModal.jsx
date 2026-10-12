@@ -1,7 +1,16 @@
-import React from 'react';
+import React, { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Printer, CheckCircle2, Award, Download, ShieldCheck } from 'lucide-react';
 
 export default function OfficialCertificateModal({ examResult, onClose }) {
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   if (!examResult) return null;
 
   const handlePrint = () => {
@@ -10,9 +19,12 @@ export default function OfficialCertificateModal({ examResult, onClose }) {
 
   const isPassed = examResult.passed;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-900/60 backdrop-blur-md overflow-y-auto animate-fade-in print:p-0 print:bg-white">
-      <div className="bg-white rounded-3xl max-w-2xl w-full p-6 sm:p-10 shadow-2xl border border-slate-100 relative my-auto print:shadow-none print:border-none print:p-4">
+  return createPortal(
+    <div 
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      className="fixed inset-0 z-[100] flex items-start justify-center p-3 sm:p-6 bg-slate-950/75 backdrop-blur-md overflow-y-auto animate-fade-in print:p-0 print:bg-white"
+    >
+      <div className="bg-white rounded-3xl max-w-2xl w-full p-6 sm:p-10 shadow-2xl border border-slate-100 relative my-6 sm:my-10 print:shadow-none print:border-none print:p-4 animate-scale-up">
         {/* Close Button (Hidden on Print) */}
         <button
           onClick={onClose}
@@ -173,6 +185,7 @@ export default function OfficialCertificateModal({ examResult, onClose }) {
           Hasil ujian ini tersimpan di riwayat perangkat Anda dan dapat dicetak kapan saja.
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
