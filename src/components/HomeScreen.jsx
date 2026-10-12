@@ -1,123 +1,298 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { 
   Sparkles, 
   ArrowRight, 
   CheckCircle2, 
-  Lock, 
   Layers, 
   Calendar, 
   BookOpen, 
   Award, 
-  Zap,
-  TrendingUp,
-  Info,
-  GraduationCap,
-  Headphones,
-  Play
+  Zap, 
+  PenTool, 
+  Puzzle, 
+  Search, 
+  Headphones, 
+  Play, 
+  GraduationCap, 
+  ChevronRight, 
+  TrendingUp, 
+  FileCheck, 
+  ChevronDown,
+  Clock,
+  Check
 } from 'lucide-react';
-import { HSK_LEVELS_CONFIG, TOTAL_HSK9_WORDS } from '../data/hskLevelsConfig';
+import { HSK_LEVELS_CONFIG } from '../data/hskLevelsConfig';
 import { useLearning } from '../context/LearningContext';
 
-export default function HomeScreen({ onSelectLevel, onOpenStudyTab, onOpenExamTab, onOpenDialogueModal }) {
+export default function HomeScreen({ 
+  onOpenStudyTab, 
+  onOpenExamTab, 
+  onOpenGrammarTab, 
+  onOpenDialogueModal, 
+  onOpenLevelSelector 
+}) {
   const { 
     totalMastered, 
+    totalReviewing,
     words, 
+    daysConfig,
     candidateName, 
     currentLevel, 
-    setCurrentLevel,
-    markFirst150Mastered
+    markFirst150Mastered,
+    officialHistory,
+    user
   } = useLearning();
 
-  const [previewLevel, setPreviewLevel] = useState(null);
-  const [selectedCategory, setSelectedCategory] = useState('all'); // 'all', 'dasar', 'menengah', 'mahir'
+  const currentLevelConfig = HSK_LEVELS_CONFIG.find(l => l.level === currentLevel) || HSK_LEVELS_CONFIG[0];
+  const totalWords = words?.length || currentLevelConfig.totalWords;
+  const progressPercent = totalWords > 0 ? Math.round((totalMastered / totalWords) * 100) : 0;
+  const unseenWords = Math.max(0, totalWords - totalMastered - totalReviewing);
+  const daysCount = daysConfig?.length || (currentLevel === 2 ? 8 : 4);
 
-  const totalHsk1Words = words.length;
-  const hsk1Percent = Math.round((totalMastered / totalHsk1Words) * 100);
+  // Latest Official Exam Attempt
+  const latestOfficialExam = officialHistory && officialHistory.length > 0 ? officialHistory[0] : null;
 
-  // Overall journey toward HSK 9 (11,092 words)
-  const overallJourneyPercent = ((totalMastered / TOTAL_HSK9_WORDS) * 100).toFixed(1);
-
-  const handleCardClick = (lvlConfig) => {
-    if (lvlConfig.level === 1 || lvlConfig.level === 2) {
-      setCurrentLevel(lvlConfig.level);
-      onOpenStudyTab();
-    } else {
-      setPreviewLevel(lvlConfig);
+  // Study Tools List for the Selected HSK Level
+  const studyTools = [
+    {
+      id: 'roadmap',
+      title: `Sprint Roadmap (${daysCount} Hari)`,
+      desc: `Target terstruktur ${daysCount} hari sprint (${Math.ceil(totalWords / daysCount)} kata/hari) menuju kelulusan.`,
+      tag: 'Jadwal Harian',
+      icon: Calendar,
+      color: 'bg-rose-50 text-rose-600 border-rose-100',
+      iconBg: 'bg-rose-500 text-white',
+      action: () => onOpenStudyTab && onOpenStudyTab('roadmap')
+    },
+    {
+      id: 'flashcard',
+      title: 'Flashcard Cerdas Interaktif',
+      desc: 'Kartu bolak-balik dengan audio suara penutur Beijing, pinyin & contoh kalimat.',
+      tag: 'Hafalan Kata',
+      icon: Layers,
+      color: 'bg-indigo-50 text-indigo-600 border-indigo-100',
+      iconBg: 'bg-indigo-500 text-white',
+      action: () => onOpenStudyTab && onOpenStudyTab('flashcard')
+    },
+    {
+      id: 'drill',
+      title: 'Speed Drill (Refleks Kilat)',
+      desc: 'Kuis kilat refleks arti & pinyin untuk menguji daya ingat instan kata Mandarin.',
+      tag: 'Kuis Cepat',
+      icon: Zap,
+      color: 'bg-amber-50 text-amber-700 border-amber-100',
+      iconBg: 'bg-amber-500 text-white',
+      action: () => onOpenStudyTab && onOpenStudyTab('drill')
+    },
+    {
+      id: 'writing',
+      title: 'Tulis Hanzi (Kanvas Goresan)',
+      desc: 'Latihan menulis karakter Hanzi goresan demi goresan di kanvas sentuh / mouse.',
+      tag: 'Goresan Hanzi',
+      icon: PenTool,
+      color: 'bg-emerald-50 text-emerald-700 border-emerald-100',
+      iconBg: 'bg-emerald-500 text-white',
+      action: () => onOpenStudyTab && onOpenStudyTab('writing')
+    },
+    {
+      id: 'sentence',
+      title: 'Susun Kalimat (Sentence Puzzle)',
+      desc: 'Latih susunan tata kata SPOK dan pola kalimat Mandarin dasar secara interaktif.',
+      tag: 'Tata Kalimat',
+      icon: Puzzle,
+      color: 'bg-sky-50 text-sky-700 border-sky-100',
+      iconBg: 'bg-sky-500 text-white',
+      action: () => onOpenStudyTab && onOpenStudyTab('sentence')
+    },
+    {
+      id: 'vocab',
+      title: `Kamus Kosakata (${totalWords} Kata)`,
+      desc: `Pencarian cepat seluruh ${totalWords} kosakata HSK ${currentLevel} dengan audio dan contoh.`,
+      tag: 'Kamus Lengkap',
+      icon: Search,
+      color: 'bg-purple-50 text-purple-700 border-purple-100',
+      iconBg: 'bg-purple-500 text-white',
+      action: () => onOpenStudyTab && onOpenStudyTab('vocab')
+    },
+    {
+      id: 'dialogue',
+      title: 'Listening Percakapan Pria & Wanita',
+      desc: 'Dialog penutur asli Beijing (Xiaoxiao & Yunxi, 18 Detik) + kuis pemahaman resmi.',
+      tag: 'Audio Asli 18s',
+      icon: Headphones,
+      color: 'bg-blue-50 text-blue-700 border-blue-100',
+      iconBg: 'bg-blue-600 text-white',
+      action: () => onOpenDialogueModal && onOpenDialogueModal()
+    },
+    {
+      id: 'official',
+      title: `Simulasi Ujian Resmi HSK ${currentLevel}`,
+      desc: 'Format ujian standar CTI, 100 poin berbatas waktu, lulus cetak sertifikat resmi digital!',
+      tag: 'Sertifikat Digital',
+      icon: Award,
+      color: 'bg-rose-50 text-rose-700 border-rose-200',
+      iconBg: 'bg-gradient-to-tr from-rose-500 to-amber-500 text-white',
+      action: () => onOpenExamTab && onOpenExamTab()
+    },
+    {
+      id: 'grammar',
+      title: `Tata Bahasa & Pola Kalimat HSK ${currentLevel}`,
+      desc: 'Rangkuman tata bahasa penting, partikel dasar (的/了/吗), dan pola kalimat esensial.',
+      tag: 'Tata Bahasa',
+      icon: GraduationCap,
+      color: 'bg-teal-50 text-teal-700 border-teal-100',
+      iconBg: 'bg-teal-600 text-white',
+      action: () => onOpenGrammarTab && onOpenGrammarTab()
     }
-  };
-
-  const filteredLevels = selectedCategory === 'all'
-    ? HSK_LEVELS_CONFIG
-    : HSK_LEVELS_CONFIG.filter(l => l.category === selectedCategory);
+  ];
 
   return (
-    <div className="space-y-6 animate-fade-in pb-16 max-w-xl mx-auto">
-      {/* User Greeting & Journey Milestone Hero */}
-      <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 rounded-3xl p-6 text-white shadow-lg shadow-slate-900/10 space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-300 text-[11px] font-semibold">
-              <Sparkles size={11} className="text-rose-400" />
-              <span>Target: Puncak HSK 9 (11.092 Kata)</span>
+    <div className="space-y-6 animate-fade-in pb-16 max-w-2xl mx-auto">
+      {/* Active Level Hero Card */}
+      <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 rounded-3xl p-6 text-white shadow-xl shadow-slate-900/10 space-y-5 border border-slate-800">
+        <div className="flex items-start justify-between gap-3">
+          <div className="space-y-1">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/20 text-rose-300 text-xs font-semibold border border-rose-500/30">
+              <Sparkles size={12} className="text-rose-400" />
+              <span>Standar Baru HSK 3.0 • CEFR {currentLevelConfig.cefr}</span>
             </div>
-            <h2 className="text-xl sm:text-2xl font-black text-white mt-1">
-              Halo, {candidateName} 👋
+            <h2 className="text-xl sm:text-2xl font-black text-white pt-1 tracking-tight">
+              {currentLevelConfig.code}: {currentLevelConfig.title}
             </h2>
+            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed max-w-lg">
+              {currentLevelConfig.desc}
+            </p>
           </div>
 
-          <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-rose-500 to-amber-400 text-white font-black text-lg flex items-center justify-center shadow-md shadow-rose-500/25 font-hanzi">
-            汉
-          </div>
+          {/* Clickable Level Switcher Button on Hero */}
+          <button
+            onClick={onOpenLevelSelector}
+            className="flex flex-col items-center justify-center p-2.5 sm:px-3.5 sm:py-2.5 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/15 text-white transition-all cursor-pointer group shrink-0 active:scale-95"
+            title="Klik untuk Ganti Tingkat HSK"
+          >
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-rose-500 to-amber-400 text-white font-black text-sm flex items-center justify-center shadow-md mb-1 group-hover:scale-105 transition-transform">
+              {currentLevelConfig.code}
+            </div>
+            <div className="flex items-center gap-1 text-[11px] font-bold text-rose-300 group-hover:text-white transition-colors">
+              <span>Ganti</span>
+              <ChevronDown size={11} className="group-hover:translate-y-0.5 transition-transform" />
+            </div>
+          </button>
         </div>
 
-        {/* Global Journey Progress toward HSK 9 */}
-        <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10 space-y-2">
-          <div className="flex justify-between items-center text-xs">
-            <span className="text-slate-300 font-medium">Perjalanan Kumulatif HSK 1 ➔ HSK 9</span>
-            <span className="text-amber-300 font-bold font-mono">{totalMastered} / 11.092 kata ({overallJourneyPercent}%)</span>
+        {/* Progress Metric Card */}
+        <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 sm:p-5 border border-white/10 space-y-3">
+          <div className="flex justify-between items-center text-xs sm:text-sm">
+            <span className="text-slate-300 font-medium">Progres Kosakata {currentLevelConfig.code}</span>
+            <span className="text-amber-300 font-bold font-mono">
+              {totalMastered} / {totalWords} kata ({progressPercent}%)
+            </span>
           </div>
-          <div className="h-2 w-full bg-black/40 rounded-full overflow-hidden p-0.5 border border-white/10">
+
+          {/* Visual Progress Bar */}
+          <div className="h-2.5 w-full bg-black/40 rounded-full overflow-hidden p-0.5 border border-white/10">
             <div 
               className="h-full bg-gradient-to-r from-rose-500 via-amber-400 to-emerald-400 rounded-full transition-all duration-700"
-              style={{ width: `${Math.max(parseFloat(overallJourneyPercent), 1.5)}%` }}
+              style={{ width: `${Math.max(progressPercent, 2)}%` }}
             />
           </div>
-          <div className="flex justify-between items-center text-[10px] text-slate-400 font-medium pt-0.5">
-            <span>Level Aktif: <strong>HSK {currentLevel}</strong></span>
-            <span>Target Puncak: <strong>HSK 9 (C2+ Native)</strong></span>
+
+          {/* Stats Breakdown Grid */}
+          <div className="grid grid-cols-3 gap-2 pt-1 text-center">
+            <div className="p-2 sm:p-2.5 rounded-xl bg-white/5 border border-white/10">
+              <span className="text-[10px] sm:text-[11px] text-emerald-300 block font-semibold">Dikuasai</span>
+              <span className="text-xs sm:text-sm font-black text-white font-mono">{totalMastered} Kata</span>
+            </div>
+            <div className="p-2 sm:p-2.5 rounded-xl bg-white/5 border border-white/10">
+              <span className="text-[10px] sm:text-[11px] text-amber-300 block font-semibold">Ditinjau</span>
+              <span className="text-xs sm:text-sm font-black text-white font-mono">{totalReviewing} Kata</span>
+            </div>
+            <div className="p-2 sm:p-2.5 rounded-xl bg-white/5 border border-white/10">
+              <span className="text-[10px] sm:text-[11px] text-slate-400 block font-semibold">Belum Mulai</span>
+              <span className="text-xs sm:text-sm font-black text-white font-mono">{unseenWords} Kata</span>
+            </div>
           </div>
         </div>
 
-        {/* 3 Major HSK 3.0 Bands Indicator */}
-        <div className="grid grid-cols-3 gap-2 pt-1 text-center">
-          <div className="p-2 rounded-xl bg-white/5 border border-white/10">
-            <span className="text-[10px] text-slate-400 block font-semibold">Dasar (1-3)</span>
-            <span className="text-xs font-bold text-rose-300">2.245 Kata</span>
+        {/* Quick Protocol Info */}
+        <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-300 pt-1 border-t border-white/10">
+          <div className="flex items-center gap-1.5">
+            <Clock size={13} className="text-rose-400" />
+            <span>Target Rekomendasi: <strong>{currentLevelConfig.sprintProtocol}</strong></span>
           </div>
-          <div className="p-2 rounded-xl bg-white/5 border border-white/10">
-            <span className="text-[10px] text-slate-400 block font-semibold">Menengah (4-6)</span>
-            <span className="text-xs font-bold text-amber-300">5.456 Kata</span>
-          </div>
-          <div className="p-2 rounded-xl bg-white/5 border border-white/10">
-            <span className="text-[10px] text-slate-400 block font-semibold">Mahir (7-9)</span>
-            <span className="text-xs font-bold text-emerald-300">11.092 Kata</span>
-          </div>
+          <button
+            onClick={onOpenLevelSelector}
+            className="text-rose-300 hover:text-white font-bold underline decoration-dotted transition-colors cursor-pointer"
+          >
+            Pindah ke HSK Lain ➔
+          </button>
         </div>
       </div>
 
-      {/* Listening Dialogue Demo Feature Banner */}
+      {/* Quick 150 Words Unlock Widget (For HSK 1 Beginners fast start) */}
+      {currentLevel === 1 && totalMastered < 150 && (
+        <div className="p-4 rounded-3xl bg-amber-50/90 border border-amber-200/80 flex items-center justify-between gap-3 shadow-2xs">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-amber-500 text-white font-black flex items-center justify-center text-base shadow-xs shrink-0">
+              ⚡
+            </div>
+            <div>
+              <h4 className="text-xs font-bold text-amber-950">Sudah hafal 150 kata pertama?</h4>
+              <p className="text-[11px] text-amber-800">Tandai langsung 150 kosakata paling dasar sebagai sudah dikuasai.</p>
+            </div>
+          </div>
+          <button
+            onClick={markFirst150Mastered}
+            className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shrink-0 transition-transform active:scale-95 shadow-xs cursor-pointer"
+          >
+            Kunci 150
+          </button>
+        </div>
+      )}
+
+      {/* Latest Official Exam Card (If Available) */}
+      {latestOfficialExam && (
+        <div 
+          onClick={onOpenExamTab}
+          className="p-4 rounded-3xl bg-gradient-to-r from-emerald-950 to-slate-900 border border-emerald-500/30 text-white flex items-center justify-between gap-3 shadow-md cursor-pointer hover:border-emerald-400/60 transition-all group"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-sm">
+              <Award size={20} />
+            </div>
+            <div>
+              <div className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-300 uppercase tracking-wider">
+                <Check size={12} />
+                <span>Hasil Ujian Resmi Terakhir</span>
+              </div>
+              <h4 className="text-xs sm:text-sm font-bold text-white">
+                Skor: {latestOfficialExam.score}/100 • {latestOfficialExam.passed ? 'Lulus Memuaskan' : 'Perlu Ulangi'}
+              </h4>
+              <p className="text-[11px] text-emerald-200/70">
+                Sertifikat No: {latestOfficialExam.certificateNo || 'Tersedia'} • Klik untuk lihat sertifikat
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-1 text-xs font-bold text-emerald-300 group-hover:text-white transition-colors">
+            <span>Buka</span>
+            <ChevronRight size={14} />
+          </div>
+        </div>
+      )}
+
+      {/* Listening Dialogue Feature Quick Banner */}
       <div 
         onClick={onOpenDialogueModal}
         className="p-4 sm:p-5 rounded-3xl bg-gradient-to-r from-indigo-900 via-indigo-950 to-slate-900 text-white border border-indigo-500/30 shadow-lg shadow-indigo-950/20 flex items-center justify-between gap-4 cursor-pointer hover:border-indigo-400/60 transition-all group active:scale-[0.99]"
       >
         <div className="flex items-center gap-3.5">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-rose-500 to-amber-400 flex items-center justify-center text-white font-bold text-lg shadow-md shrink-0 group-hover:scale-105 transition-transform">
+          <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-rose-500 to-amber-400 flex items-center justify-center text-white font-bold text-lg shadow-md shrink-0 group-hover:scale-105 transition-transform">
             <Headphones size={22} className="text-white" />
           </div>
           <div>
-            <div className="inline-flex items-center gap-1.5 text-[10px] font-bold text-rose-300 bg-rose-500/20 px-2 py-0.5 rounded-full mb-1">
+            <div className="inline-flex items-center gap-1.5 text-[10px] font-bold text-rose-300 bg-rose-500/20 px-2 py-0.5 rounded-full mb-0.5">
               <Sparkles size={11} className="text-rose-400" />
-              <span>Demo Audio Asli Beijing (18 Detik)</span>
+              <span>Audio Penutur Asli Beijing (18 Detik)</span>
             </div>
             <h4 className="text-sm font-bold text-white leading-snug">Listening Percakapan Pria & Wanita</h4>
             <p className="text-xs text-indigo-200/80 line-clamp-1">Simulasi dialog stasiun kereta api + kuis pemahaman resmi HSK</p>
@@ -130,188 +305,48 @@ export default function HomeScreen({ onSelectLevel, onOpenStudyTab, onOpenExamTa
         </div>
       </div>
 
-      {/* Quick 150 Words Unlock Widget (For fast start) */}
-      {totalMastered < 150 && (
-        <div className="p-4 rounded-3xl bg-amber-50/80 border border-amber-200/80 flex items-center justify-between gap-3 shadow-2xs">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-amber-500 text-white font-bold flex items-center justify-center text-sm shadow-xs shrink-0">
-              ⚡
-            </div>
-            <div>
-              <h4 className="text-xs font-bold text-amber-950">Sudah hafal 150 kata pertama?</h4>
-              <p className="text-[11px] text-amber-800">Tandai langsung 150 kata awal sebagai sudah dikuasai.</p>
-            </div>
-          </div>
-          <button
-            onClick={markFirst150Mastered}
-            className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shrink-0 transition-transform active:scale-95 shadow-xs"
-          >
-            Kunci 150
-          </button>
-        </div>
-      )}
-
-      {/* HSK 1 - HSK 9 INTERACTIVE CARDS LIST */}
+      {/* Menu-Menu Aksi HSK Terpilih */}
       <div className="space-y-3.5">
         <div className="flex items-center justify-between px-1">
-          <h3 className="text-sm font-bold text-slate-900 tracking-tight flex items-center gap-1.5">
-            <TrendingUp size={16} className="text-rose-500" />
-            <span>Pilih Jenjang HSK (Standar 3.0)</span>
-          </h3>
-          <span className="text-xs text-slate-400 font-medium">9 Tingkatan</span>
+          <div>
+            <h3 className="text-base font-bold text-slate-900 tracking-tight flex items-center gap-2">
+              <BookOpen size={18} className="text-rose-500" />
+              <span>Menu Belajar HSK {currentLevel}</span>
+            </h3>
+            <p className="text-xs text-slate-500">Pilih modul latihan untuk mempercepat penguasaan {currentLevelConfig.code}</p>
+          </div>
+          <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-rose-50 text-rose-600 border border-rose-100">
+            {studyTools.length} Modul
+          </span>
         </div>
 
-        {/* Category Filter Tabs */}
-        <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-2xl border border-slate-200/60 overflow-x-auto no-scrollbar">
-          {[
-            { id: 'all', label: 'Semua (1-9)' },
-            { id: 'dasar', label: 'Dasar (1-3)' },
-            { id: 'menengah', label: 'Menengah (4-6)' },
-            { id: 'mahir', label: 'Mahir (7-9)' },
-          ].map((cat) => (
-            <button
-              key={cat.id}
-              onClick={() => setSelectedCategory(cat.id)}
-              className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold transition-all whitespace-nowrap text-center ${
-                selectedCategory === cat.id
-                  ? 'bg-white text-slate-900 shadow-xs'
-                  : 'text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              {cat.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Cards List */}
-        <div className="space-y-3.5">
-          {filteredLevels.map((lvl) => {
-            const isLevel1 = lvl.level === 1;
-            const progress = isLevel1 ? hsk1Percent : 0;
-            const isCurrentActive = currentLevel === lvl.level;
-
+        {/* Action Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {studyTools.map((tool) => {
+            const Icon = tool.icon;
             return (
               <div
-                key={lvl.level}
-                onClick={() => handleCardClick(lvl)}
-                className={`card-subtle rounded-3xl p-5 cursor-pointer relative overflow-hidden transition-all duration-200 border ${
-                  isCurrentActive 
-                    ? 'border-rose-400/90 ring-2 ring-rose-500/10 shadow-md' 
-                    : 'hover:border-slate-300'
-                }`}
+                key={tool.id}
+                onClick={tool.action}
+                className="card-subtle rounded-3xl p-4 sm:p-5 cursor-pointer border border-slate-200/80 hover:border-rose-400/80 hover:shadow-md transition-all group flex flex-col justify-between space-y-3 active:scale-[0.99]"
               >
-                {/* Header row */}
-                <div className="flex items-start justify-between gap-3 mb-2">
-                  <div className="flex items-center gap-2.5">
-                    <div className={`w-11 h-11 rounded-2xl flex items-center justify-center text-white font-black text-sm shadow-sm bg-gradient-to-br ${lvl.color}`}>
-                      {lvl.code}
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h4 className="text-base font-bold text-slate-900">
-                          {lvl.code}
-                        </h4>
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
-                          CEFR {lvl.cefr}
-                        </span>
-                        <span className="text-[10px] font-semibold text-slate-400 hidden sm:inline">
-                          • {lvl.categoryLabel.split(' ')[0]}
-                        </span>
-                      </div>
-                      <p className="text-xs font-semibold text-slate-500">
-                        {lvl.title}
-                      </p>
-                    </div>
+                <div className="flex items-start justify-between gap-3">
+                  <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shadow-xs shrink-0 ${tool.iconBg}`}>
+                    <Icon size={20} />
                   </div>
-
-                  {/* Status Badge */}
-                  <div>
-                    {isLevel1 ? (
-                      <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-rose-50 text-rose-600 border border-rose-200/60">
-                        {progress}% Selesai
-                      </span>
-                    ) : lvl.level === 2 ? (
-                      <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200/60">
-                        Siap Dibuka
-                      </span>
-                    ) : (
-                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-400 flex items-center gap-1">
-                        <Lock size={10} />
-                        <span>Level Lanjutan</span>
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Level metrics pills */}
-                <div className="flex flex-wrap items-center gap-1.5 my-3 text-[11px] font-semibold">
-                  <span className="px-2.5 py-1 rounded-xl bg-slate-100 text-slate-700">
-                    📚 {lvl.totalWords.toLocaleString()} Kata Total
-                  </span>
-                  <span className="px-2.5 py-1 rounded-xl bg-slate-100 text-slate-700">
-                    ✍️ {lvl.hanziCount.toLocaleString()} Hanzi
-                  </span>
-                  <span className="px-2.5 py-1 rounded-xl bg-slate-100 text-slate-700">
-                    ⏱️ {lvl.sprintProtocol.split(' ')[0]} {lvl.sprintProtocol.split(' ')[1]}
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${tool.color}`}>
+                    {tool.tag}
                   </span>
                 </div>
 
-                <p className="text-xs text-slate-500 leading-relaxed mb-4">
-                  {lvl.desc}
-                </p>
-
-                {/* Progress bar (For Level 1) */}
-                {isLevel1 && (
-                  <div className="space-y-1 mb-4">
-                    <div className="flex justify-between text-[11px] font-medium text-slate-400">
-                      <span>Progres: {totalMastered} dari {totalHsk1Words} kata</span>
-                      <span className="font-bold text-rose-600">{progress}%</span>
-                    </div>
-                    <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
-                      <div 
-                        className="h-full bg-rose-500 rounded-full transition-all duration-500"
-                        style={{ width: `${Math.max(progress, 2)}%` }}
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {/* Action CTA */}
-                <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
-                  <span className="text-[11px] text-slate-400">
-                    {isLevel1 ? 'Modul Siap Dipelajari' : 'Klik untuk rincian kurikulum'}
-                  </span>
-
-                  <div className="flex items-center gap-2">
-                    {isLevel1 && onOpenExamTab && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onOpenExamTab();
-                        }}
-                        className="flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-bold bg-rose-50 text-rose-600 hover:bg-rose-100 transition-all active:scale-95"
-                        title="Simulasi Ujian Resmi HSK 1"
-                      >
-                        <Award size={13} />
-                        <span>Ujian</span>
-                      </button>
-                    )}
-
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleCardClick(lvl);
-                      }}
-                      className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-2xs ${
-                        (isLevel1 || lvl.level === 2)
-                          ? 'bg-slate-900 hover:bg-rose-500 text-white active:scale-95' 
-                          : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-                      }`}
-                    >
-                      <span>{(isLevel1 || lvl.level === 2) ? 'Masuk Belajar' : 'Lihat Detail'}</span>
-                      <ArrowRight size={13} />
-                    </button>
-                  </div>
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900 group-hover:text-rose-600 transition-colors flex items-center justify-between">
+                    <span>{tool.title}</span>
+                    <ChevronRight size={15} className="text-slate-400 group-hover:text-rose-500 group-hover:translate-x-0.5 transition-all" />
+                  </h4>
+                  <p className="text-xs text-slate-500 leading-relaxed mt-1">
+                    {tool.desc}
+                  </p>
                 </div>
               </div>
             );
@@ -319,50 +354,21 @@ export default function HomeScreen({ onSelectLevel, onOpenStudyTab, onOpenExamTa
         </div>
       </div>
 
-      {/* Level Preview Modal for HSK 2-9 */}
-      {previewLevel && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-fade-in">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4">
-            <div className="flex items-center gap-3">
-              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-white font-black text-lg bg-gradient-to-br ${previewLevel.color}`}>
-                {previewLevel.code}
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h4 className="text-base font-bold text-slate-900">{previewLevel.code} — {previewLevel.title}</h4>
-                </div>
-                <span className="text-xs font-semibold text-slate-500">Standar Internasional CEFR {previewLevel.cefr} • {previewLevel.categoryLabel}</span>
-              </div>
-            </div>
-
-            <div className="p-3.5 bg-slate-50 rounded-2xl text-xs text-slate-700 space-y-2">
-              <p><strong>Target Kompetensi:</strong> {previewLevel.targetDescription}</p>
-              <div className="grid grid-cols-2 gap-2 pt-1 font-semibold text-slate-600">
-                <div>• Total: {previewLevel.totalWords.toLocaleString()} Kosakata</div>
-                <div>• Tambahan: +{previewLevel.newWords.toLocaleString()} Kata Baru</div>
-                <div>• Hanzi: {previewLevel.hanziCount.toLocaleString()} Karakter</div>
-                <div>• Rekomendasi: {previewLevel.sprintProtocol}</div>
-              </div>
-            </div>
-
-            <div className="p-3 bg-amber-50 rounded-2xl border border-amber-200 text-xs text-amber-900 flex items-start gap-2">
-              <Info size={16} className="text-amber-600 shrink-0 mt-0.5" />
-              <span>
-                Saat ini Anda berada di tahap <strong>HSK 1 (Sprint 4 Hari)</strong>. Setelah lulus simulasi ujian resmi HSK 1, kurikulum {previewLevel.code} akan langsung terbuka untuk dipelajari!
-              </span>
-            </div>
-
-            <div className="flex items-center gap-2 pt-2">
-              <button
-                onClick={() => setPreviewLevel(null)}
-                className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all"
-              >
-                Kembali ke Beranda
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Switch Level Banner / Bottom Headline Navigation */}
+      <div className="p-5 rounded-3xl bg-slate-100/90 border border-slate-200/80 text-center space-y-2">
+        <h4 className="text-xs font-bold text-slate-700">Ingin beralih ke jenjang HSK lainnya?</h4>
+        <p className="text-[11px] text-slate-500 max-w-md mx-auto">
+          Anda sedang berada di dashboard <strong>{currentLevelConfig.code}</strong>. Klik tombol di bawah atau lencana HSK di pojok kiri atas kapan saja untuk berpindah ke HSK 2 s/d HSK 9.
+        </p>
+        <button
+          onClick={onOpenLevelSelector}
+          className="mt-2 inline-flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all shadow-2xs active:scale-95 cursor-pointer"
+        >
+          <Layers size={13} />
+          <span>Ganti Tingkat HSK ({currentLevelConfig.code} ➔ Pilihan Lain)</span>
+          <ChevronDown size={13} />
+        </button>
+      </div>
     </div>
   );
 }

@@ -74,6 +74,23 @@ export function LearningProvider({ children }) {
            'Pembelajar HSK';
   });
 
+  const [hasSelectedLevel, setHasSelectedLevelState] = useState(() => {
+    try {
+      return localStorage.getItem(`${STORAGE_KEY}_has_selected_level`) === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const setHasSelectedLevel = (val) => {
+    setHasSelectedLevelState(val);
+    try {
+      localStorage.setItem(`${STORAGE_KEY}_has_selected_level`, val ? 'true' : 'false');
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   // Supabase Auth States
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -172,6 +189,8 @@ export function LearningProvider({ children }) {
         if (merged.currentLevel) {
           setCurrentLevel(merged.currentLevel);
           localStorage.setItem(`${STORAGE_KEY}_current_level`, merged.currentLevel.toString());
+          setHasSelectedLevelState(true);
+          localStorage.setItem(`${STORAGE_KEY}_has_selected_level`, 'true');
         }
         if (merged.officialHistory) {
           setOfficialHistory(merged.officialHistory);
@@ -449,7 +468,10 @@ export function LearningProvider({ children }) {
         user,
         authLoading,
         loginWithGoogle,
-        logout
+        logout,
+        // Onboarding Level Selection
+        hasSelectedLevel,
+        setHasSelectedLevel
       }}
     >
       {children}

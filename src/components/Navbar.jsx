@@ -8,11 +8,12 @@ import {
   Volume2, 
   Smartphone,
   Sparkles,
-  Headphones
+  Headphones,
+  ChevronDown
 } from 'lucide-react';
 import { useLearning } from '../context/LearningContext';
 
-export default function Navbar({ activeTab, setActiveTab, onOpenIosModal, onOpenDialogueModal }) {
+export default function Navbar({ activeTab, setActiveTab, onOpenIosModal, onOpenDialogueModal, onOpenLevelSelector }) {
   const { 
     totalMastered, 
     words, 
@@ -40,33 +41,57 @@ export default function Navbar({ activeTab, setActiveTab, onOpenIosModal, onOpen
         {/* Top Header Row */}
         <div className="h-16 flex items-center justify-between gap-3">
           {/* Logo & Brand */}
-          <div 
-            onClick={() => setActiveTab('home')}
-            className="flex items-center gap-2.5 cursor-pointer group select-none shrink-0"
-          >
-            <div className="w-9 h-9 rounded-xl bg-rose-500 text-white font-bold text-lg flex items-center justify-center shadow-sm shadow-rose-500/20 group-hover:scale-105 transition-transform font-hanzi">
+          <div className="flex items-center gap-2.5 select-none shrink-0">
+            <div 
+              onClick={() => setActiveTab('home')}
+              className="w-9 h-9 rounded-xl bg-rose-500 text-white font-bold text-lg flex items-center justify-center shadow-sm shadow-rose-500/20 hover:scale-105 transition-transform font-hanzi cursor-pointer"
+            >
               汉
             </div>
             <div>
               <div className="flex items-center gap-1.5">
-                <span className="font-bold tracking-tight text-slate-900 text-sm sm:text-base">
+                <span 
+                  onClick={() => setActiveTab('home')}
+                  className="font-bold tracking-tight text-slate-900 text-sm sm:text-base cursor-pointer"
+                >
                   HSK <span className="text-rose-500 font-extrabold">TURBO</span>
                 </span>
-                <span className="text-[10px] font-bold tracking-wider px-1.5 py-0.5 rounded-md bg-rose-50 text-rose-600 border border-rose-100">
-                  HSK {currentLevel}
-                </span>
+                
+                {/* Level Switcher Badge */}
+                <button
+                  type="button"
+                  onClick={onOpenLevelSelector}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-rose-50 hover:bg-rose-100/90 text-rose-700 border border-rose-200/80 font-bold text-[11px] shadow-2xs hover:shadow-xs transition-all cursor-pointer active:scale-95 group"
+                  title="Ganti Tingkat HSK Belajar (HSK 1 - 9)"
+                >
+                  <span>HSK {currentLevel}</span>
+                  <ChevronDown size={11} className="text-rose-500 group-hover:translate-y-0.5 transition-transform" />
+                </button>
               </div>
-              <p className="text-[11px] text-slate-400 font-medium hidden sm:block">
-                Standar 3.0 • Menuju HSK 9
-              </p>
+              <div className="flex items-center gap-1 text-[11px] text-slate-400 font-medium hidden sm:flex">
+                <span>Standar 3.0</span>
+                <span>•</span>
+                <button 
+                  onClick={onOpenLevelSelector} 
+                  className="hover:text-rose-600 transition-colors cursor-pointer underline decoration-dotted"
+                >
+                  Ganti Level
+                </button>
+              </div>
             </div>
           </div>
 
           {/* Desktop Metric Pill */}
-          <div className="hidden lg:flex items-center gap-3 bg-slate-50/80 border border-slate-200/60 rounded-full px-3.5 py-1.5">
-            <span className="text-xs font-semibold text-slate-500">
-              Progres HSK 1
-            </span>
+          <button
+            type="button"
+            onClick={onOpenLevelSelector}
+            className="hidden lg:flex items-center gap-3 bg-slate-50/90 hover:bg-slate-100/80 border border-slate-200/70 rounded-full px-3.5 py-1.5 transition-all cursor-pointer active:scale-98 group"
+            title="Klik untuk Ganti Tingkat HSK"
+          >
+            <div className="flex items-center gap-1 text-xs font-semibold text-slate-600">
+              <span>HSK {currentLevel}</span>
+              <ChevronDown size={12} className="text-slate-400 group-hover:text-slate-700" />
+            </div>
             <div className="w-24 h-1.5 bg-slate-200/80 rounded-full overflow-hidden">
               <div 
                 className="h-full bg-gradient-to-r from-rose-500 to-emerald-500 rounded-full transition-all duration-500"
@@ -76,7 +101,7 @@ export default function Navbar({ activeTab, setActiveTab, onOpenIosModal, onOpen
             <span className="text-xs font-bold text-slate-900 font-mono">
               {totalMastered}/{totalWords} ({progressPercent}%)
             </span>
-          </div>
+          </button>
 
           {/* Right Controls */}
           <div className="flex items-center gap-2">

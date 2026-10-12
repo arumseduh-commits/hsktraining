@@ -8,6 +8,7 @@ import OfficialExamView from './components/OfficialExamView';
 import ProfileView from './components/ProfileView';
 import IosModal from './components/IosModal';
 import DialogueListeningModal from './components/DialogueListeningModal';
+import LevelSelectorModal from './components/LevelSelectorModal';
 import LoginScreen from './components/LoginScreen';
 import { 
   Home, 
@@ -18,10 +19,12 @@ import {
 } from 'lucide-react';
 
 function AppContent() {
-  const { user, authLoading } = useLearning();
+  const { user, authLoading, hasSelectedLevel } = useLearning();
   const [activeTab, setActiveTab] = useState('home');
+  const [studyInitialSubTab, setStudyInitialSubTab] = useState('roadmap');
   const [isIosModalOpen, setIsIosModalOpen] = useState(false);
   const [isDialogueModalOpen, setIsDialogueModalOpen] = useState(false);
+  const [isLevelSelectorOpen, setIsLevelSelectorOpen] = useState(false);
 
   // Splash screen saat mengecek sesi login Supabase
   if (authLoading) {
@@ -43,6 +46,9 @@ function AppContent() {
     return <LoginScreen />;
   }
 
+  // First-time onboarding: jika belum pernah memilih level HSK
+  const shouldShowOnboarding = !hasSelectedLevel;
+
   return (
     <div className="min-h-screen flex flex-col bg-[#f8fafc] text-slate-900 pb-24 sm:pb-12">
       {/* Top Header & Desktop Navigation */}
@@ -51,21 +57,28 @@ function AppContent() {
         setActiveTab={setActiveTab}
         onOpenIosModal={() => setIsIosModalOpen(true)}
         onOpenDialogueModal={() => setIsDialogueModalOpen(true)}
+        onOpenLevelSelector={() => setIsLevelSelectorOpen(true)}
       />
 
       {/* Main View Router */}
       <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 pt-5">
         {activeTab === 'home' && (
           <HomeScreen 
-            onOpenStudyTab={() => setActiveTab('study')}
+            onOpenStudyTab={(targetMode) => {
+              setStudyInitialSubTab(targetMode || 'roadmap');
+              setActiveTab('study');
+            }}
             onOpenExamTab={() => setActiveTab('official')}
+            onOpenGrammarTab={() => setActiveTab('grammar')}
             onOpenDialogueModal={() => setIsDialogueModalOpen(true)}
+            onOpenLevelSelector={() => setIsLevelSelectorOpen(true)}
           />
         )}
 
         {activeTab === 'study' && (
           <StudyHubView 
             onOpenDialogueModal={() => setIsDialogueModalOpen(true)}
+            initialSubTab={studyInitialSubTab}
           />
         )}
 
@@ -82,7 +95,7 @@ function AppContent() {
         )}
       </main>
 
-      {/* Modal Dialogues */}
+      {/* Modals with React createPortal */}
       <IosModal 
         isOpen={isIosModalOpen} 
         onClose={() => setIsIosModalOpen(false)} 
@@ -91,6 +104,13 @@ function AppContent() {
       <DialogueListeningModal 
         isOpen={isDialogueModalOpen} 
         onClose={() => setIsDialogueModalOpen(false)} 
+      />
+
+      {/* Level Selector Modal (First-time onboarding or Manual Switch) */}
+      <LevelSelectorModal 
+        isOpen={isLevelSelectorOpen || shouldShowOnboarding}
+        isFirstTime={shouldShowOnboarding}
+        onClose={() => setIsLevelSelectorOpen(false)}
       />
 
       {/* Mobile Floating Bottom Navigation Dock */}
@@ -108,7 +128,10 @@ function AppContent() {
         </button>
 
         <button
-          onClick={() => setActiveTab('study')}
+          onClick={() => {
+            setStudyInitialSubTab('roadmap');
+            setActiveTab('study');
+          }}
           className={`flex flex-col items-center gap-1 py-1.5 px-2.5 rounded-2xl text-[10px] font-bold transition-all ${
             activeTab === 'study' 
               ? 'text-rose-600 bg-rose-50/80 scale-105' 
@@ -155,12 +178,6 @@ function AppContent() {
           <span>Akun</span>
         </button>
       </nav>
-
-      {/* iOS Safari Home Screen Guide Modal */}
-      <IosModal 
-        isOpen={isIosModalOpen} 
-        onClose={() => setIsIosModalOpen(false)} 
-      />
     </div>
   );
 }

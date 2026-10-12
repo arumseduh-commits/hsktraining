@@ -20,10 +20,16 @@ import VocabListView from './VocabListView';
 import MockExamView from './MockExamView';
 import { useLearning } from '../context/LearningContext';
 
-export default function StudyHubView({ onOpenDialogueModal }) {
+export default function StudyHubView({ onOpenDialogueModal, initialSubTab = 'roadmap' }) {
   const { currentLevel, daysConfig, words } = useLearning();
-  const [studySubTab, setStudySubTab] = useState('roadmap');
+  const [studySubTab, setStudySubTab] = useState(initialSubTab);
   const [selectedDayParam, setSelectedDayParam] = useState(1);
+
+  React.useEffect(() => {
+    if (initialSubTab) {
+      setStudySubTab(initialSubTab);
+    }
+  }, [initialSubTab]);
 
   const handleSelectDayStudy = (dayNum, targetMode = 'flashcard') => {
     setSelectedDayParam(dayNum);
