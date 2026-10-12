@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   Volume2, 
   RotateCw, 
@@ -12,13 +13,19 @@ import {
   EyeOff, 
   Sparkles,
   Lightbulb,
-  Star
+  Star,
+  Award,
+  Zap,
+  CheckCircle2,
+  Compass
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useLearning } from '../context/LearningContext';
 import { speakChinese } from '../utils/speech';
+import DayHanziQuizModal from './DayHanziQuizModal';
 
 export default function FlashcardMode({ initialDay = 1 }) {
+  const navigate = useNavigate();
   const { 
     words, 
     wordStatus, 
@@ -38,6 +45,9 @@ export default function FlashcardMode({ initialDay = 1 }) {
   const [hidePinyinInitially, setHidePinyinInitially] = useState(true);
   const [shuffled, setShuffled] = useState(false);
   const [toastMessage, setToastMessage] = useState(null);
+  const [isSessionCompleted, setIsSessionCompleted] = useState(false);
+  const [isHanziQuizOpen, setIsHanziQuizOpen] = useState(false);
+  const [reviewSessionList, setReviewSessionList] = useState(null);
   const toastTimeoutRef = useRef(null);
 
   const showToast = (msg) => {
@@ -59,10 +69,26 @@ export default function FlashcardMode({ initialDay = 1 }) {
     if (initialDay !== undefined && initialDay !== null) {
       setSelectedDay(initialDay);
       setCurrentIndex(0);
+      setIsSessionCompleted(false);
+      setReviewSessionList(null);
     }
   }, [initialDay]);
 
-  // Filter words
+  // Current session batch of words for the selected day
+  const currentSessionBatch = useMemo(() => {
+    if (selectedDay === 'all') return words;
+    return words.filter(w => w.day === Number(selectedDay));
+  }, [words, selectedDay]);
+
+  const masteredInBatch = useMemo(() => {
+    return currentSessionBatch.filter(w => wordStatus[w.id] === 'mastered');
+  }, [currentSessionBatch, wordStatus]);
+
+  const unmasteredInBatch = useMemo(() => {
+    return currentSessionBatch.filter(w => wordStatus[w.id] !== 'mastered');
+  }, [currentSessionBatch, wordStatus]);
+
+  // Filtered words for active flashcard viewing
   const filteredWords = useMemo(() => {
     let list = words;
     if (selectedDay !== 'all') {
@@ -84,52 +110,58 @@ export default function FlashcardMode({ initialDay = 1 }) {
     return list;
   }, [words, selectedDay, filterStatus, wordStatus, shuffled, isFavorite]);
 
-  const currentWord = filteredWords[currentIndex] || filteredWords[0];
+  // Active deck: when user reviews unmastered words, use stable reviewSessionList to avoid skip-card mutations
+  const activeWords = useMemo(() => {
+    if (reviewSessionList && reviewSessionList.length > 0) {
+      return reviewSessionList;
+    }
+    return filteredWords;
+  }, [reviewSessionList, filteredWords]);
+
+  const currentWord = activeWords[currentIndex] || activeWords[0];
 
   useEffect(() => {
     setIsFlipped(false);
-  }, [currentIndex, selectedDay, filterStatus]);
-
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.code === 'Space') {
-        e.preventDefault();
-        setIsFlipped(prev => !prev);
-      } else if (e.code === 'ArrowRight') {
-        handleNext();
-      } else if (e.code === 'ArrowLeft') {
-        handlePrev();
-      } else if (e.key === '1') {
-        handleRate('reviewing');
-      } else if (e.key === '2' || e.key === '3') {
-        handleRate('mastered');
-      } else if ((e.key === 'f' || e.key === 'F') && currentWord) {
-        handleToggleFav(null, currentWord);
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentIndex, filteredWords.length, currentWord]);
+  }, [currentIndex, selectedDay, filterStatus, reviewSessionList]);
 
   const handleNext = () => {
-    if (currentIndex < filteredWords.length - 1) {
+    if (currentIndex < activeWords.length - 1) {
       setCurrentIndex(prev => prev + 1);
     } else {
-      setCurrentIndex(0);
+      // Reached the end of the 50 words / session batch: show completion summary
+      setIsSessionCompleted(true);
+      setReviewSessionList(null);
+      confetti({
+        particleCount: 50,
+        spread: 70,
+        origin: { y: 0.6 }
+      });
     }
   };
 
   const handlePrev = () => {
     if (currentIndex > 0) {
       setCurrentIndex(prev => prev - 1);
-    } else {
-      setCurrentIndex(filteredWords.length - 1);
     }
+  };
+
+  const handleStartReviewUnmastered = () => {
+    if (unmasteredInBatch.length === 0) return;
+    setReviewSessionList([...unmasteredInBatch]);
+    setCurrentIndex(0);
+    setIsSessionCompleted(false);
+  };
+
+  const handleRestartAll = () => {
+    setReviewSessionList(null);
+    setFilterStatus('all');
+    setCurrentIndex(0);
+    setIsSessionCompleted(false);
   };
 
   const handlePlayAudio = (e, text) => {
     e?.stopPropagation();
-    speakChinese(text || currentWord.hanzi, audioSpeed);
+    speakChinese(text || currentWord?.hanzi, audioSpeed);
   };
 
   const handleRate = (status) => {
@@ -150,6 +182,28 @@ export default function FlashcardMode({ initialDay = 1 }) {
     }, 180);
   };
 
+  useEffect(() => {
+    if (isSessionCompleted) return;
+    const handleKeyDown = (e) => {
+      if (e.code === 'Space') {
+        e.preventDefault();
+        setIsFlipped(prev => !prev);
+      } else if (e.code === 'ArrowRight') {
+        handleNext();
+      } else if (e.code === 'ArrowLeft') {
+        handlePrev();
+      } else if (e.key === '1') {
+        handleRate('reviewing');
+      } else if (e.key === '2' || e.key === '3') {
+        handleRate('mastered');
+      } else if ((e.key === 'f' || e.key === 'F') && currentWord) {
+        handleToggleFav(null, currentWord);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [currentIndex, activeWords.length, currentWord, isSessionCompleted]);
+
   const getTonePillClass = (tone) => {
     switch (tone) {
       case 1: return 'tone-pill-1';
@@ -160,6 +214,179 @@ export default function FlashcardMode({ initialDay = 1 }) {
     }
   };
 
+  // RENDER COMPLETION SUMMARY SCREEN WHEN SESSION FINISHES
+  if (isSessionCompleted) {
+    const masteryPercent = currentSessionBatch.length > 0 
+      ? Math.round((masteredInBatch.length / currentSessionBatch.length) * 100) 
+      : 0;
+
+    return (
+      <div className="max-w-xl mx-auto space-y-5 animate-fade-in pb-16">
+        <div className="card-subtle rounded-3xl p-6 sm:p-8 space-y-6 bg-white border border-slate-200/90 shadow-xl text-center">
+          {/* Header */}
+          <div className="space-y-2">
+            <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-amber-400 to-rose-500 text-white flex items-center justify-center mx-auto shadow-lg shadow-rose-500/20">
+              <Award size={34} />
+            </div>
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-50 text-rose-600 text-xs font-bold border border-rose-100">
+              <Sparkles size={13} />
+              <span>Sesi Belajar Selesai! 🎉</span>
+            </div>
+            <h2 className="text-xl sm:text-2xl font-black text-slate-900">
+              {selectedDay !== 'all' ? `Kosakata Hari ke-${selectedDay}` : 'Seluruh Kosakata'}
+            </h2>
+            <p className="text-xs text-slate-500 max-w-sm mx-auto leading-relaxed">
+              Anda telah menuntaskan seluruh <strong>{filteredWords.length} kosakata</strong> pada sesi ini. Evaluasi pemahaman Anda sebelum melanjutkan:
+            </p>
+          </div>
+
+          {/* Bento Stats */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="p-4 rounded-2xl bg-emerald-50/80 border border-emerald-100 text-left">
+              <span className="text-[11px] font-bold text-emerald-700 uppercase flex items-center gap-1">
+                <CheckCircle2 size={14} /> Sudah Dikuasai
+              </span>
+              <div className="text-2xl sm:text-3xl font-black font-mono text-emerald-800 mt-1">
+                {masteredInBatch.length} <span className="text-xs font-semibold text-emerald-600">kata</span>
+              </div>
+              <p className="text-[10px] text-emerald-600 mt-0.5">Memori aktif tersimpan kuat</p>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-amber-50/80 border border-amber-100 text-left">
+              <span className="text-[11px] font-bold text-amber-800 uppercase flex items-center gap-1">
+                <AlertCircle size={14} /> Ragu & Belum Hafal
+              </span>
+              <div className="text-2xl sm:text-3xl font-black font-mono text-amber-900 mt-1">
+                {unmasteredInBatch.length} <span className="text-xs font-semibold text-amber-700">kata</span>
+              </div>
+              <p className="text-[10px] text-amber-700 mt-0.5">Perlu pengulangan khusus</p>
+            </div>
+          </div>
+
+          {/* Progress bar visual */}
+          <div className="space-y-1.5 text-left">
+            <div className="flex justify-between text-xs font-bold text-slate-600">
+              <span>Tingkat Penguasaan Sesi</span>
+              <span className="font-mono text-rose-600">{masteryPercent}%</span>
+            </div>
+            <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-gradient-to-r from-rose-500 to-emerald-500 rounded-full transition-all duration-700"
+                style={{ width: `${masteryPercent}%` }}
+              />
+            </div>
+          </div>
+
+          {/* List of Words Needing Review */}
+          <div className="space-y-2 text-left pt-1">
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-bold text-slate-800">
+                {unmasteredInBatch.length > 0 
+                  ? `Kata yang Belum Dikuasai (${unmasteredInBatch.length})` 
+                  : 'Status Kosakata Selesai'}
+              </span>
+              <span className="text-[11px] text-slate-400">
+                {unmasteredInBatch.length === 0 ? 'Semua Berhasil Dihafal' : 'Klik audio untuk mendengar'}
+              </span>
+            </div>
+
+            {unmasteredInBatch.length > 0 ? (
+              <div className="max-h-56 overflow-y-auto space-y-1.5 p-1 rounded-2xl bg-slate-50 border border-slate-100 pr-1.5">
+                {unmasteredInBatch.map((word) => (
+                  <div
+                    key={word.id}
+                    className="flex items-center justify-between p-2.5 rounded-xl bg-white border border-slate-200/70 hover:border-rose-200 transition-colors shadow-2xs"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <span className="text-xl font-black font-hanzi text-slate-900">{word.hanzi}</span>
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-mono text-rose-500 font-bold">{word.pinyin}</span>
+                          <span className={`text-[9px] px-1.5 py-0.2 rounded-full font-bold ${getTonePillClass(word.tone)}`}>
+                            Nada {word.tone}
+                          </span>
+                        </div>
+                        <span className="text-xs text-slate-600 line-clamp-1">{word.arti}</span>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => speakChinese(word.hanzi, audioSpeed)}
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer shrink-0"
+                      title="Putar Audio"
+                    >
+                      <Volume2 size={16} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="p-4 rounded-2xl bg-emerald-50 text-emerald-800 border border-emerald-200 text-center text-xs space-y-1">
+                <Sparkles size={22} className="mx-auto text-emerald-600 mb-1" />
+                <p className="font-bold text-sm">Luar Biasa! 100% Kosakata Sudah Dikuasai!</p>
+                <p className="text-[11px] text-emerald-600">Semua kata pada sesi ini telah berhasil Anda ingat dengan sangat baik.</p>
+              </div>
+            )}
+          </div>
+
+          {/* Action Buttons */}
+          <div className="space-y-2.5 pt-2">
+            {/* Action A: Ulas Kata Ragu-ragu & Belum Hafal */}
+            {unmasteredInBatch.length > 0 && (
+              <button
+                onClick={handleStartReviewUnmastered}
+                className="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-amber-500 to-rose-500 hover:from-amber-600 hover:to-rose-600 active:scale-98 text-white font-bold text-xs shadow-md shadow-amber-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <AlertCircle size={16} />
+                <span>Ulas Kata Ragu-ragu & Belum Hafal ({unmasteredInBatch.length} Kata)</span>
+              </button>
+            )}
+
+            {/* Action B: Uji Pengetahuan Hanzi Hari Ini */}
+            <button
+              onClick={() => setIsHanziQuizOpen(true)}
+              className="w-full py-3.5 px-4 rounded-2xl bg-slate-900 hover:bg-slate-800 active:scale-98 text-white font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <Zap size={16} className="text-amber-400" />
+              <span>Uji Pengetahuan Hanzi {selectedDay !== 'all' ? `Hari ke-${selectedDay}` : 'Hari Ini'}</span>
+            </button>
+
+            {/* Action C: Ulas Semua & Navigasi */}
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={handleRestartAll}
+                className="py-2.5 px-3 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <RotateCw size={14} />
+                <span>Ulas dari Awal</span>
+              </button>
+
+              <button
+                onClick={() => navigate('/study/roadmap')}
+                className="py-2.5 px-3 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <Compass size={14} />
+                <span>Ke Roadmap</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Hanzi Quiz Modal */}
+        <DayHanziQuizModal
+          isOpen={isHanziQuizOpen}
+          onClose={() => setIsHanziQuizOpen(false)}
+          day={selectedDay}
+          dayWords={currentSessionBatch}
+          onCompleteQuiz={() => {
+            // Keep stats fresh
+          }}
+        />
+      </div>
+    );
+  }
+
+  // EMPTY LIST FALLBACK
   if (!currentWord) {
     return (
       <div className="card-subtle rounded-3xl p-8 sm:p-10 text-center max-w-md mx-auto my-12 space-y-3">
@@ -214,9 +441,9 @@ export default function FlashcardMode({ initialDay = 1 }) {
         {/* Day Pills & Favorite Filter */}
         <div className="flex items-center gap-1 overflow-x-auto no-scrollbar max-w-full sm:max-w-xs scroll-smooth py-0.5">
           <button
-            onClick={() => { setSelectedDay('all'); setFilterStatus('all'); setCurrentIndex(0); }}
+            onClick={() => { setReviewSessionList(null); setSelectedDay('all'); setFilterStatus('all'); setCurrentIndex(0); setIsSessionCompleted(false); }}
             className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
-              selectedDay === 'all' && filterStatus !== 'favorites'
+              selectedDay === 'all' && filterStatus !== 'favorites' && !reviewSessionList
                 ? 'bg-white shadow-xs text-slate-900 font-bold'
                 : 'text-slate-500 hover:text-slate-800'
             }`}
@@ -226,11 +453,13 @@ export default function FlashcardMode({ initialDay = 1 }) {
 
           <button
             onClick={() => {
+              setReviewSessionList(null);
               setFilterStatus(prev => prev === 'favorites' ? 'all' : 'favorites');
               setCurrentIndex(0);
+              setIsSessionCompleted(false);
             }}
             className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
-              filterStatus === 'favorites'
+              filterStatus === 'favorites' && !reviewSessionList
                 ? 'bg-amber-500 text-white shadow-xs font-bold'
                 : 'text-slate-500 hover:text-slate-800 hover:bg-white/60'
             }`}
@@ -243,9 +472,9 @@ export default function FlashcardMode({ initialDay = 1 }) {
           {sprintDaysList.map(d => (
             <button
               key={d}
-              onClick={() => { setSelectedDay(d); if (filterStatus === 'favorites') setFilterStatus('all'); setCurrentIndex(0); }}
+              onClick={() => { setReviewSessionList(null); setSelectedDay(d); if (filterStatus === 'favorites') setFilterStatus('all'); setCurrentIndex(0); setIsSessionCompleted(false); }}
               className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap cursor-pointer ${
-                selectedDay === d && filterStatus !== 'favorites'
+                selectedDay === d && filterStatus !== 'favorites' && !reviewSessionList
                   ? 'bg-rose-500 text-white shadow-xs font-bold'
                   : 'text-slate-500 hover:text-slate-800'
               }`}
@@ -257,9 +486,29 @@ export default function FlashcardMode({ initialDay = 1 }) {
 
         {/* Toggle Pills */}
         <div className="flex items-center gap-1 ml-auto">
+          {reviewSessionList && (
+            <button
+              onClick={() => { setReviewSessionList(null); setCurrentIndex(0); }}
+              className="px-2 py-1 rounded-lg bg-amber-100 text-amber-900 text-[10px] font-bold cursor-pointer hover:bg-amber-200"
+              title="Keluar dari Sesi Ulas Kata Ragu"
+            >
+              Mode Ulas ✕
+            </button>
+          )}
+
+          {filterStatus !== 'all' && (
+            <button
+              onClick={() => { setFilterStatus('all'); setCurrentIndex(0); }}
+              className="px-2 py-1 rounded-lg bg-slate-200 text-slate-700 text-[10px] font-bold cursor-pointer"
+              title="Reset Filter"
+            >
+              Filter: {filterStatus} ✕
+            </button>
+          )}
+
           <button
             onClick={() => setHidePinyinInitially(h => !h)}
-            className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all ${
+            className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
               hidePinyinInitially
                 ? 'bg-white shadow-xs text-rose-600 font-bold'
                 : 'text-slate-500 hover:text-slate-800'
@@ -272,7 +521,7 @@ export default function FlashcardMode({ initialDay = 1 }) {
 
           <button
             onClick={() => setShuffled(s => !s)}
-            className={`p-1.5 rounded-xl text-xs transition-all ${
+            className={`p-1.5 rounded-xl text-xs transition-all cursor-pointer ${
               shuffled ? 'bg-amber-100 text-amber-800' : 'text-slate-400 hover:text-slate-700'
             }`}
             title="Acak Kartu"
@@ -284,8 +533,15 @@ export default function FlashcardMode({ initialDay = 1 }) {
 
       {/* Progress & Card Index */}
       <div className="flex items-center justify-between text-xs px-2 text-slate-400 font-medium">
-        <span>{currentIndex + 1} dari {filteredWords.length} kata</span>
-        <div>
+        <div className="flex items-center gap-2">
+          <span>{currentIndex + 1} dari {activeWords.length} kata</span>
+          {reviewSessionList && (
+            <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-bold border border-amber-200">
+              Ulas Kata Ragu ({activeWords.length})
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
           {currentStatus === 'mastered' && (
             <span className="text-emerald-600 font-semibold flex items-center gap-1 text-[11px]">
               ✓ Dikuasai
@@ -301,6 +557,14 @@ export default function FlashcardMode({ initialDay = 1 }) {
               Kata Baru
             </span>
           )}
+
+          <button
+            onClick={() => setIsSessionCompleted(true)}
+            className="text-[10px] font-bold text-slate-400 hover:text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md cursor-pointer ml-1"
+            title="Lihat ringkasan sesi sekarang"
+          >
+            Ringkasan
+          </button>
         </div>
       </div>
 
@@ -420,7 +684,7 @@ export default function FlashcardMode({ initialDay = 1 }) {
               {currentWord.contoh && (
                 <div 
                   onClick={(e) => handlePlayAudio(e, currentWord.contoh)}
-                  className="bg-slate-50 hover:bg-rose-50/50 border border-slate-100 rounded-2xl p-3 transition-colors cursor-pointer"
+                  className="bg-slate-50 hover:bg-rose-50/50 border border-slate-100 rounded-2xl p-3 transition-colors cursor-pointer text-left"
                 >
                   <div className="flex items-center justify-between text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">
                     <span>Contoh Kalimat:</span>
@@ -434,7 +698,7 @@ export default function FlashcardMode({ initialDay = 1 }) {
 
               {/* Memory tip */}
               {currentWord.tips && (
-                <div className="bg-amber-50/70 border border-amber-200/50 rounded-2xl p-2.5 text-xs text-amber-900 flex items-start gap-1.5">
+                <div className="bg-amber-50/70 border border-amber-200/50 rounded-2xl p-2.5 text-xs text-amber-900 flex items-start gap-1.5 text-left">
                   <Lightbulb size={14} className="text-amber-600 shrink-0 mt-0.5" />
                   <p className="text-[11px] leading-relaxed">
                     <strong>Trik Ingat:</strong> {currentWord.tips}
@@ -456,7 +720,7 @@ export default function FlashcardMode({ initialDay = 1 }) {
       <div className="grid grid-cols-3 gap-2.5 pt-1">
         <button
           onClick={() => handleRate('reviewing')}
-          className="py-3 px-2 bg-slate-100 hover:bg-rose-50 active:scale-95 text-slate-600 hover:text-rose-600 rounded-2xl font-bold text-xs transition-all flex items-center justify-center gap-1"
+          className="py-3 px-2 bg-slate-100 hover:bg-rose-50 active:scale-95 text-slate-600 hover:text-rose-600 rounded-2xl font-bold text-xs transition-all flex items-center justify-center gap-1 cursor-pointer"
         >
           <X size={15} />
           <span>Belum Ingat</span>
@@ -464,7 +728,7 @@ export default function FlashcardMode({ initialDay = 1 }) {
 
         <button
           onClick={() => handleRate('reviewing')}
-          className="py-3 px-2 bg-slate-100 hover:bg-amber-50 active:scale-95 text-slate-600 hover:text-amber-700 rounded-2xl font-bold text-xs transition-all flex items-center justify-center gap-1"
+          className="py-3 px-2 bg-slate-100 hover:bg-amber-50 active:scale-95 text-slate-600 hover:text-amber-700 rounded-2xl font-bold text-xs transition-all flex items-center justify-center gap-1 cursor-pointer"
         >
           <AlertCircle size={15} />
           <span>Ragu-ragu</span>
@@ -472,7 +736,7 @@ export default function FlashcardMode({ initialDay = 1 }) {
 
         <button
           onClick={() => handleRate('mastered')}
-          className="py-3 px-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white rounded-2xl font-bold text-xs transition-all shadow-sm flex items-center justify-center gap-1"
+          className="py-3 px-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white rounded-2xl font-bold text-xs transition-all shadow-sm flex items-center justify-center gap-1 cursor-pointer"
         >
           <Check size={15} />
           <span>Sudah Kuasai</span>
@@ -483,7 +747,7 @@ export default function FlashcardMode({ initialDay = 1 }) {
       <div className="flex items-center justify-between px-1 pt-1">
         <button
           onClick={handlePrev}
-          className="text-xs font-semibold text-slate-400 hover:text-slate-800 flex items-center gap-1"
+          className="text-xs font-semibold text-slate-400 hover:text-slate-800 flex items-center gap-1 cursor-pointer"
         >
           <ChevronLeft size={15} />
           <span>Sebelumnya</span>
@@ -491,12 +755,20 @@ export default function FlashcardMode({ initialDay = 1 }) {
 
         <button
           onClick={handleNext}
-          className="text-xs font-semibold text-slate-400 hover:text-slate-800 flex items-center gap-1"
+          className="text-xs font-semibold text-slate-400 hover:text-slate-800 flex items-center gap-1 cursor-pointer"
         >
-          <span>Berikutnya</span>
+          <span>{currentIndex === filteredWords.length - 1 ? 'Selesai & Evaluasi' : 'Berikutnya'}</span>
           <ChevronRight size={15} />
         </button>
       </div>
+
+      {/* Hanzi Quiz Modal */}
+      <DayHanziQuizModal
+        isOpen={isHanziQuizOpen}
+        onClose={() => setIsHanziQuizOpen(false)}
+        day={selectedDay}
+        dayWords={currentSessionBatch}
+      />
     </div>
   );
 }

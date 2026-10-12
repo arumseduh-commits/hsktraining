@@ -20,7 +20,9 @@ import {
   FileCheck, 
   ChevronDown, 
   Clock, 
-  Check 
+  Check,
+  ShieldCheck,
+  Lock 
 } from 'lucide-react';
 import { HSK_LEVELS_CONFIG } from '../data/hskLevelsConfig';
 import { useLearning } from '../context/LearningContext';
@@ -40,11 +42,14 @@ export default function HomeScreen({
     daysConfig,
     candidateName, 
     currentLevel, 
-    markFirst150Mastered,
     officialHistory,
     user,
     dailyTarget,
-    currentActiveDay
+    currentActiveDay,
+    isFinalAssessmentPassed,
+    isFinalAssessmentUnlocked,
+    completedCheckpointsCount,
+    requiredCheckpointsCount
   } = useLearning();
 
   const currentLevelConfig = HSK_LEVELS_CONFIG.find(l => l.level === currentLevel) || HSK_LEVELS_CONFIG[0];
@@ -236,24 +241,46 @@ export default function HomeScreen({
       {/* Daily Goal & Streak Check-in Widget (SuperChinese Style) */}
       <DailyGoalWidget onOpenTargetModal={() => setIsTargetModalOpen(true)} />
 
-      {/* Quick 150 Words Unlock Widget (For HSK 1 Beginners fast start) */}
-      {currentLevel === 1 && totalMastered < 150 && (
-        <div className="p-4 rounded-3xl bg-amber-50/90 border border-amber-200/80 flex items-center justify-between gap-3 shadow-2xs">
+      {/* Assesmen Kelulusan Status Banner (HSK 1) */}
+      {currentLevel === 1 && (
+        <div 
+          onClick={() => navigate('/study/roadmap')}
+          className="p-4 rounded-3xl bg-white border border-slate-200/80 hover:border-indigo-300 shadow-2xs flex items-center justify-between gap-3 transition-all cursor-pointer group"
+        >
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-amber-500 text-white font-black flex items-center justify-center text-base shadow-xs shrink-0">
-              ⚡
+            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center font-bold shrink-0 ${
+              isFinalAssessmentPassed
+                ? 'bg-emerald-500 text-white shadow-xs'
+                : isFinalAssessmentUnlocked
+                ? 'bg-amber-500 text-white shadow-xs'
+                : 'bg-indigo-50 text-indigo-600 border border-indigo-100'
+            }`}>
+              {isFinalAssessmentPassed ? <CheckCircle2 size={18} /> : isFinalAssessmentUnlocked ? <Award size={18} /> : <ShieldCheck size={18} />}
             </div>
             <div>
-              <h4 className="text-xs font-bold text-amber-950">Sudah hafal 150 kata pertama?</h4>
-              <p className="text-[11px] text-amber-800">Tandai langsung 150 kosakata paling dasar sebagai sudah dikuasai.</p>
+              <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                <span>Evaluasi & Assesmen HSK 1</span>
+              </div>
+              <h4 className="text-xs sm:text-sm font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">
+                {isFinalAssessmentPassed 
+                  ? '🏆 Assesmen Final Lulus! Sertifikasi Terbuka' 
+                  : isFinalAssessmentUnlocked 
+                  ? '⚡ Assesmen Final Siap Diambil!' 
+                  : `Evaluasi Berkala: ${completedCheckpointsCount}/${requiredCheckpointsCount} Selesai`}
+              </h4>
+              <p className="text-[11px] text-slate-500 line-clamp-1">
+                {isFinalAssessmentPassed
+                  ? 'Seluruh 500 kosakata telah terverifikasi. Siap ikut ujian resmi!'
+                  : isFinalAssessmentUnlocked
+                  ? 'Selesaikan assesmen final untuk membuka ujian sertifikat resmi.'
+                  : 'Selesaikan evaluasi kelipatan hari untuk membuka Assesmen Final.'}
+              </p>
             </div>
           </div>
-          <button
-            onClick={markFirst150Mastered}
-            className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shrink-0 transition-transform active:scale-95 shadow-xs cursor-pointer"
-          >
-            Kunci 150
-          </button>
+          <div className="flex items-center gap-1 text-xs font-bold text-indigo-600 group-hover:translate-x-0.5 transition-transform shrink-0">
+            <span>Buka</span>
+            <ChevronRight size={14} />
+          </div>
         </div>
       )}
 

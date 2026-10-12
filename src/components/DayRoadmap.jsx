@@ -2,31 +2,38 @@ import React, { useState, useMemo } from 'react';
 import { 
   ArrowRight, 
   Sparkles, 
-  Layers, 
   PenTool, 
   Zap, 
   Calendar,
   RotateCcw,
   CheckCircle2,
-  Clock,
-  Target,
   Flame,
-  Award
+  Award,
+  Lock,
+  ShieldCheck
 } from 'lucide-react';
 import { DAYS_CONFIG } from '../data/hsk1Words';
 import { useLearning } from '../context/LearningContext';
+import PeriodicAssessmentModal from './PeriodicAssessmentModal';
+import FinalAssessmentModal from './FinalAssessmentModal';
 
 export default function DayRoadmap({ onSelectDayStudy }) {
   const { 
     totalMastered, 
     words, 
     getDayStats, 
-    markFirst150Mastered,
     resetAllProgress,
     daysConfig,
     currentLevel,
     dailyTarget,
-    currentActiveDay
+    currentActiveDay,
+    periodicAssessments,
+    finalAssessment,
+    periodicCheckpoints,
+    completedCheckpointsCount,
+    requiredCheckpointsCount,
+    isFinalAssessmentUnlocked,
+    isFinalAssessmentPassed
   } = useLearning();
 
   const sprintDays = daysConfig || DAYS_CONFIG;
@@ -71,6 +78,9 @@ export default function DayRoadmap({ onSelectDayStudy }) {
   }, [activeDayNum, sprintDays.length]);
 
   const [selectedMilestone, setSelectedMilestone] = useState('active');
+  const [activeCheckpointModal, setActiveCheckpointModal] = useState(null);
+  const [isFinalModalOpen, setIsFinalModalOpen] = useState(false);
+  const [isLockedNoticeOpen, setIsLockedNoticeOpen] = useState(false);
 
   const currentMilestoneFilter = selectedMilestone === 'active' ? activeMilestoneId : selectedMilestone;
 
@@ -215,14 +225,6 @@ export default function DayRoadmap({ onSelectDayStudy }) {
               <ArrowRight size={13} />
             </button>
 
-            {currentLevel === 1 && totalMastered < 150 && (
-              <button
-                onClick={markFirst150Mastered}
-                className="w-full py-1.5 px-3 rounded-xl bg-amber-50 hover:bg-amber-100/80 text-amber-800 font-semibold text-[11px] border border-amber-200/60 transition-all cursor-pointer text-center"
-              >
-                ⚡ Sudah hafal 150 kata awal? Kunci sekarang
-              </button>
-            )}
           </div>
         </div>
       </div>
@@ -409,6 +411,244 @@ export default function DayRoadmap({ onSelectDayStudy }) {
           })}
         </div>
       </div>
+
+      {/* Jalur Evaluasi Kelipatan Hari & Assesmen Final HSK 1 */}
+      <div className="space-y-4 pt-6 mt-4 border-t border-slate-200/80">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-1">
+          <div>
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-[10px] font-bold border border-indigo-100 mb-1">
+              <ShieldCheck size={12} />
+              <span>Sistem Evaluasi Bertahap</span>
+            </div>
+            <h3 className="text-base font-bold tracking-tight text-slate-900 flex items-center gap-2">
+              <span>Evaluasi Kelipatan Hari & Assesmen Final</span>
+            </h3>
+            <p className="text-xs text-slate-500">
+              Evaluasi berkala setiap beberapa kelipatan hari untuk mengingat kumulatif kata, lalu buka Assesmen Final untuk verifikasi kelulusan resmi.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-slate-600 bg-slate-100 px-3 py-1 rounded-xl">
+              Progres Evaluasi: <strong className="text-indigo-600">{completedCheckpointsCount}/{requiredCheckpointsCount}</strong>
+            </span>
+          </div>
+        </div>
+
+        {/* Checkpoint Cards (Evaluasi Kelipatan Hari) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {periodicCheckpoints.map((cp) => {
+            const res = periodicAssessments[cp.id];
+            const isCpPassed = Boolean(res?.passed);
+
+            return (
+              <div
+                key={cp.id}
+                className={`card-subtle rounded-3xl p-5 sm:p-6 flex flex-col justify-between border transition-all ${
+                  isCpPassed 
+                    ? 'bg-emerald-50/40 border-emerald-200/90 shadow-2xs' 
+                    : 'bg-white border-slate-200/80 hover:border-indigo-200'
+                }`}
+              >
+                <div>
+                  <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 uppercase tracking-wider">
+                      Kelipatan Hari • Hari 1–{cp.coverageEndDay}
+                    </span>
+
+                    {isCpPassed ? (
+                      <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                        <CheckCircle2 size={11} />
+                        <span>Lulus ({res.percent}%)</span>
+                      </span>
+                    ) : res ? (
+                      <span className="bg-amber-100 text-amber-800 text-[10px] font-bold px-2.5 py-0.5 rounded-full">
+                        Skor: {res.percent}% (Belum Lolos)
+                      </span>
+                    ) : (
+                      <span className="bg-slate-100 text-slate-500 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                        Siap Dikerjakan
+                      </span>
+                    )}
+                  </div>
+
+                  <h4 className="text-base font-bold text-slate-900">
+                    {cp.title}
+                  </h4>
+                  <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                    {cp.desc}
+                  </p>
+                </div>
+
+                <div className="pt-4 mt-4 border-t border-slate-100/80 flex items-center justify-between gap-2">
+                  <span className="text-[11px] text-slate-400 font-mono">
+                    {cp.questionCount} Soal Kumulatif
+                  </span>
+
+                  <button
+                    onClick={() => setActiveCheckpointModal(cp)}
+                    className={`py-2 px-4 rounded-xl text-xs font-bold transition-all active:scale-95 shadow-2xs cursor-pointer flex items-center gap-1.5 ${
+                      isCpPassed 
+                        ? 'bg-emerald-600 hover:bg-emerald-700 text-white' 
+                        : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                    }`}
+                  >
+                    <span>{isCpPassed ? 'Uji Ulang Evaluasi' : 'Mulai Evaluasi Berkala'}</span>
+                    <ArrowRight size={13} />
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Assesmen Final HSK 1 Card */}
+        <div className={`rounded-3xl p-6 sm:p-7 border relative overflow-hidden transition-all shadow-md ${
+          isFinalAssessmentPassed
+            ? 'bg-gradient-to-r from-emerald-950 via-slate-900 to-emerald-950 border-emerald-500/40 text-white'
+            : isFinalAssessmentUnlocked
+            ? 'bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border-rose-500/50 text-white ring-2 ring-rose-500/20'
+            : 'bg-slate-900/95 border-slate-700/80 text-white'
+        }`}>
+          <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-5">
+            <div className="space-y-2 max-w-xl">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-md ${
+                  isFinalAssessmentPassed
+                    ? 'bg-emerald-500/30 text-emerald-300 border border-emerald-400/30'
+                    : isFinalAssessmentUnlocked
+                    ? 'bg-rose-500/30 text-rose-300 border border-rose-400/30'
+                    : 'bg-slate-800 text-slate-400 border border-slate-700'
+                }`}>
+                  Tahap Puncak HSK 1
+                </span>
+
+                {isFinalAssessmentPassed ? (
+                  <span className="text-[11px] font-bold text-emerald-400 flex items-center gap-1">
+                    <CheckCircle2 size={13} />
+                    <span>Lulus ({finalAssessment?.percent || 100}%) • Sertifikasi Terbuka</span>
+                  </span>
+                ) : isFinalAssessmentUnlocked ? (
+                  <span className="text-[11px] font-bold text-amber-300 flex items-center gap-1">
+                    <Sparkles size={13} />
+                    <span>Syarat Terpenuhi • Siap Diambil</span>
+                  </span>
+                ) : (
+                  <span className="text-[11px] font-semibold text-amber-400 flex items-center gap-1">
+                    <Lock size={12} />
+                    <span>Syarat: Selesaikan minimal {requiredCheckpointsCount} Evaluasi Berkala ({completedCheckpointsCount}/{requiredCheckpointsCount})</span>
+                  </span>
+                )}
+              </div>
+
+              <h3 className="text-xl sm:text-2xl font-black text-white">
+                Assesmen Final Kelulusan HSK 1
+              </h3>
+              <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+                Ujian komprehensif 25 soal menguji 500 kosakata dan seluruh tata bahasa dasar HSK 1. Luluskan assesmen ini untuk membuka Kuis Cepat lanjutan dan Ujian Resmi Bersertifikat!
+              </p>
+              <p className="text-[11px] text-slate-400 italic">
+                * Jika Anda sudah bisa materi HSK 1, selesaikan evaluasi ini terlebih dahulu untuk langsung membuka seluruh kuis dan ujian HSK.
+              </p>
+            </div>
+
+            <div className="shrink-0 flex flex-col sm:flex-row gap-2.5">
+              {isFinalAssessmentUnlocked ? (
+                <button
+                  onClick={() => setIsFinalModalOpen(true)}
+                  className={`py-3.5 px-6 rounded-2xl font-bold text-xs shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer ${
+                    isFinalAssessmentPassed
+                      ? 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-emerald-500/20'
+                      : 'bg-gradient-to-r from-rose-500 to-amber-500 hover:from-rose-600 hover:to-amber-600 text-white shadow-rose-500/20'
+                  }`}
+                >
+                  <Award size={16} />
+                  <span>{isFinalAssessmentPassed ? 'Uji Ulang Assesmen Final' : 'Mulai Assesmen Final ➔'}</span>
+                </button>
+              ) : (
+                <button
+                  onClick={() => setIsLockedNoticeOpen(true)}
+                  className="py-3 px-5 rounded-2xl bg-slate-800 hover:bg-slate-700/80 text-slate-300 border border-slate-700 text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Lock size={14} className="text-amber-400" />
+                  <span>Assesmen Terkunci (Lihat Syarat)</span>
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Periodic Assessment Modal */}
+      {activeCheckpointModal && (
+        <PeriodicAssessmentModal
+          isOpen={Boolean(activeCheckpointModal)}
+          checkpoint={activeCheckpointModal}
+          onClose={() => setActiveCheckpointModal(null)}
+        />
+      )}
+
+      {/* Final Assessment Modal */}
+      <FinalAssessmentModal
+        isOpen={isFinalModalOpen}
+        onClose={() => setIsFinalModalOpen(false)}
+      />
+
+      {/* Locked Notice Dynamic Popup Modal */}
+      {isLockedNoticeOpen && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md animate-fade-in">
+          <div 
+            className="w-full max-w-md bg-white rounded-3xl p-6 sm:p-7 shadow-2xl border border-slate-200 space-y-4 text-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-14 h-14 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto border border-amber-200">
+              <Lock size={26} />
+            </div>
+
+            <div className="space-y-1">
+              <h3 className="text-base font-bold text-slate-900">
+                Assesmen Final Masih Terkunci
+              </h3>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                Untuk memastikan Anda telah mengingat kosakata secara bertahap, Anda perlu menyelesaikan minimal <strong>{requiredCheckpointsCount} Evaluasi Berkala</strong> terlebih dahulu.
+              </p>
+            </div>
+
+            <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200/80 text-xs space-y-1 text-left">
+              <div className="flex justify-between font-medium text-slate-600">
+                <span>Evaluasi Berkala Selesai:</span>
+                <span className="font-bold text-indigo-600">{completedCheckpointsCount} dari {requiredCheckpointsCount}</span>
+              </div>
+              <div className="h-1.5 w-full bg-slate-200 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-indigo-500 rounded-full"
+                  style={{ width: `${Math.min(100, (completedCheckpointsCount / requiredCheckpointsCount) * 100)}%` }}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2 pt-2">
+              <button
+                onClick={() => {
+                  setIsLockedNoticeOpen(false);
+                  const firstIncomplete = periodicCheckpoints.find(cp => !periodicAssessments[cp.id]?.passed) || periodicCheckpoints[0];
+                  if (firstIncomplete) setActiveCheckpointModal(firstIncomplete);
+                }}
+                className="w-full py-3 px-4 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md shadow-indigo-600/20 transition-all cursor-pointer"
+              >
+                Kerjakan Evaluasi Berkala Sekarang ➔
+              </button>
+
+              <button
+                onClick={() => setIsLockedNoticeOpen(false)}
+                className="w-full py-2.5 px-4 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs transition-colors cursor-pointer"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

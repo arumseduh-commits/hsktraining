@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
   Compass, 
@@ -24,7 +24,7 @@ import { useLearning } from '../context/LearningContext';
 export default function StudyHubView({ onOpenDialogueModal }) {
   const { mode } = useParams();
   const navigate = useNavigate();
-  const { currentLevel, daysConfig, words, dailyTarget } = useLearning();
+  const { currentLevel, daysConfig, words, dailyTarget, isFinalAssessmentPassed } = useLearning();
   
   const studySubTab = mode || 'roadmap';
   const [selectedDayParam, setSelectedDayParam] = useState(1);
@@ -36,6 +36,7 @@ export default function StudyHubView({ onOpenDialogueModal }) {
 
   const wordsCount = words ? words.length : (currentLevel === 2 ? 772 : 500);
   const calculatedDays = dailyTarget > 0 ? Math.ceil(wordsCount / dailyTarget) : (daysConfig ? daysConfig.length : (currentLevel === 2 ? 8 : 4));
+  const isQuizLocked = currentLevel === 1 && !isFinalAssessmentPassed;
 
   const subNavItems = [
     { id: 'roadmap', label: `Roadmap (~${calculatedDays} Hari)`, icon: Compass },
@@ -45,7 +46,7 @@ export default function StudyHubView({ onOpenDialogueModal }) {
     { id: 'writing', label: 'Tulis Hanzi', icon: PenTool },
     { id: 'sentence', label: 'Susun Kalimat', icon: Puzzle },
     { id: 'vocab', label: `Kamus ${wordsCount}`, icon: Search },
-    { id: 'quick_quiz', label: 'Kuis Cepat', icon: Award },
+    { id: 'quick_quiz', label: isQuizLocked ? 'Kuis Cepat 🔒' : 'Kuis Cepat', icon: Award },
   ];
 
   return (

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   Award, 
   Clock, 
@@ -8,7 +9,9 @@ import {
   AlertTriangle, 
   ChevronRight, 
   ChevronLeft, 
-  Sparkles
+  Sparkles,
+  Lock,
+  ArrowRight
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { MOCK_EXAM_QUESTIONS } from '../data/mockExam';
@@ -16,7 +19,16 @@ import { speakChinese } from '../utils/speech';
 import { useLearning } from '../context/LearningContext';
 
 export default function MockExamView() {
-  const { audioSpeed, recordExamScore, examScores } = useLearning();
+  const navigate = useNavigate();
+  const { 
+    audioSpeed, 
+    recordExamScore, 
+    examScores,
+    currentLevel,
+    isFinalAssessmentPassed,
+    completedCheckpointsCount,
+    requiredCheckpointsCount
+  } = useLearning();
 
   const [examState, setExamState] = useState('intro');
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -39,6 +51,10 @@ export default function MockExamView() {
   const currentQ = MOCK_EXAM_QUESTIONS[currentIndex];
 
   const startExam = () => {
+    if (currentLevel === 1 && !isFinalAssessmentPassed) {
+      navigate('/study/roadmap');
+      return;
+    }
     setUserAnswers({});
     setCurrentIndex(0);
     setTimeLeft(900);
@@ -147,12 +163,31 @@ export default function MockExamView() {
             </div>
           )}
 
-          <button
-            onClick={startExam}
-            className="w-full py-3.5 bg-slate-900 hover:bg-slate-800 active:scale-98 text-white font-bold text-xs rounded-2xl transition-all shadow-sm"
-          >
-            Mulai Ujian Sekarang
-          </button>
+          {currentLevel === 1 && !isFinalAssessmentPassed ? (
+            <div className="p-4 rounded-2xl bg-amber-50/90 border border-amber-200 text-amber-950 space-y-2 text-left">
+              <div className="flex items-center gap-2 text-xs font-bold text-amber-900">
+                <Lock size={15} className="text-amber-600" />
+                <span>Kuis Ujian Terkunci 🔒</span>
+              </div>
+              <p className="text-xs text-amber-800 leading-relaxed">
+                Selesaikan <strong>Evaluasi Berkala</strong> ({completedCheckpointsCount}/{requiredCheckpointsCount} selesai) dan <strong>Assesmen Final HSK 1</strong> di Roadmap terlebih dahulu untuk membuka kuis ujian ini.
+              </p>
+              <button
+                onClick={() => navigate('/study/roadmap')}
+                className="w-full mt-1 py-2.5 bg-amber-600 hover:bg-amber-700 active:scale-95 text-white font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+              >
+                <span>Buka Jalur Assesmen di Roadmap</span>
+                <ArrowRight size={13} />
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={startExam}
+              className="w-full py-3.5 bg-slate-900 hover:bg-slate-800 active:scale-98 text-white font-bold text-xs rounded-2xl transition-all shadow-sm cursor-pointer"
+            >
+              Mulai Ujian Sekarang
+            </button>
+          )}
         </div>
       )}
 

@@ -1,8 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { HSK1_WORDS, DAYS_CONFIG as HSK1_DAYS } from '../data/hsk1Words';
-import { HSK2_WORDS, DAYS_CONFIG_HSK2 } from '../data/hsk2Words';
+import { HSK1_WORDS } from '../data/hsk1Words';
+import { HSK2_WORDS } from '../data/hsk2Words';
 import { loadLevelVocabulary, preCacheAllLevels } from '../services/vocabLoader';
-import { getSupabase, isSupabaseConfigured } from '../services/supabaseClient';
+import { getSupabase } from '../services/supabaseClient';
 import { fetchRemoteProgress, pushRemoteProgress, mergeLearningProgress } from '../services/cloudSync';
 
 const LearningContext = createContext();
@@ -100,6 +100,25 @@ export function LearningProvider({ children }) {
       return legacy ? JSON.parse(legacy) : [];
     } catch {
       return [];
+    }
+  });
+
+  // Periodic & Final Assessment States
+  const [periodicAssessments, setPeriodicAssessments] = useState(() => {
+    try {
+      const saved = localStorage.getItem(`${STORAGE_KEY}_periodic_assessments_lvl_${currentLevel}`);
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  const [finalAssessment, setFinalAssessment] = useState(() => {
+    try {
+      const saved = localStorage.getItem(`${STORAGE_KEY}_final_assessment_lvl_${currentLevel}`);
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
     }
   });
 
@@ -518,6 +537,20 @@ export function LearningProvider({ children }) {
     }
 
     try {
+      const savedPA = localStorage.getItem(`${STORAGE_KEY}_periodic_assessments_lvl_${currentLevel}`);
+      setPeriodicAssessments(savedPA ? JSON.parse(savedPA) : {});
+    } catch {
+      setPeriodicAssessments({});
+    }
+
+    try {
+      const savedFA = localStorage.getItem(`${STORAGE_KEY}_final_assessment_lvl_${currentLevel}`);
+      setFinalAssessment(savedFA ? JSON.parse(savedFA) : null);
+    } catch {
+      setFinalAssessment(null);
+    }
+
+    try {
       localStorage.setItem(`${STORAGE_KEY}_current_level`, currentLevel.toString());
     } catch (e) {
       console.error(e);
@@ -570,6 +603,22 @@ export function LearningProvider({ children }) {
       console.error(e);
     }
   }, [candidateName]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(`${STORAGE_KEY}_periodic_assessments_lvl_${currentLevel}`, JSON.stringify(periodicAssessments));
+    } catch (e) {
+      console.error(e);
+    }
+  }, [periodicAssessments, currentLevel]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(`${STORAGE_KEY}_final_assessment_lvl_${currentLevel}`, JSON.stringify(finalAssessment));
+    } catch (e) {
+      console.error(e);
+    }
+  }, [finalAssessment, currentLevel]);
 
   // --- DAILY GOAL & STREAK LOGIC (SuperChinese Style) ---
   const todayStr = getTodayDateStr();
@@ -776,24 +825,56 @@ export function LearningProvider({ children }) {
     scheduleSilentCloudSync();
   };
 
-  const markFirst150Mastered = () => {
-    const updated = { ...wordStatus };
-    for (let i = 1; i <= Math.min(150, words.length); i++) {
-      updated[i] = 'mastered';
-    }
-    setWordStatus(updated);
-    scheduleSilentCloudSync();
-  };
-
   const resetAllProgress = () => {
     setWordStatus({});
     setExamScores([]);
     setFavorites({});
+    setPeriodicAssessments({});
+    setFinalAssessment(null);
     try {
       localStorage.removeItem(`${STORAGE_KEY}_favorites_lvl_${currentLevel}`);
+      localStorage.removeItem(`${STORAGE_KEY}_periodic_assessments_lvl_${currentLevel}`);
+      localStorage.removeItem(`${STORAGE_KEY}_final_assessment_lvl_${currentLevel}`);
     } catch (e) {
       console.error(e);
     }
+    scheduleSilentCloudSync();
+  };
+
+  const recordPeriodicAssessment = (checkpointId, resultData) => {
+    setPeriodicAssessments(prev => {
+      const existing = prev[checkpointId];
+      const wasPassed = Boolean(existing?.passed);
+      const isPassed = Boolean(resultData.passed) || wasPassed;
+      const bestPercent = Math.max(existing?.percent || 0, resultData.percent || 0);
+
+      const record = {
+        ...resultData,
+        percent: bestPercent,
+        passed: isPassed,
+        date: new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+      };
+      return {
+        ...prev,
+        [checkpointId]: record
+      };
+    });
+    scheduleSilentCloudSync();
+  };
+
+  const recordFinalAssessment = (resultData) => {
+    setFinalAssessment(prev => {
+      const wasPassed = Boolean(prev?.passed);
+      const isPassed = Boolean(resultData.passed) || wasPassed;
+      const bestPercent = Math.max(prev?.percent || 0, resultData.percent || 0);
+
+      return {
+        ...resultData,
+        percent: bestPercent,
+        passed: isPassed,
+        date: new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+      };
+    });
     scheduleSilentCloudSync();
   };
 
@@ -851,6 +932,72 @@ export function LearningProvider({ children }) {
     return 1;
   }, [daysConfig, words, wordStatus]);
 
+  // Dynamic Periodic Checkpoints based on daysConfig
+  const periodicCheckpoints = useMemo(() => {
+    if (!daysConfig || daysConfig.length === 0) return [];
+    const totalDays = daysConfig.length;
+    const list = [];
+
+    if (totalDays <= 4) {
+      list.push({
+        id: 'checkpoint_day_2',
+        day: 2,
+        title: 'Evaluasi Berkala 1 (Hari 1 – 2)',
+        desc: 'Uji pengingatan kumulatif 250 kosakata fondasi pertama HSK 1.',
+        coverageStartDay: 1,
+        coverageEndDay: 2,
+        questionCount: 15
+      });
+      list.push({
+        id: 'checkpoint_day_4',
+        day: 4,
+        title: 'Evaluasi Berkala 2 (Hari 1 – 4)',
+        desc: 'Uji pengingatan kumulatif seluruh 500 kosakata HSK 1.',
+        coverageStartDay: 1,
+        coverageEndDay: 4,
+        questionCount: 20
+      });
+    } else {
+      const step = totalDays <= 8 ? 2 : totalDays <= 15 ? 3 : 5;
+      let count = 1;
+      for (let d = step; d <= totalDays; d += step) {
+        list.push({
+          id: `checkpoint_day_${d}`,
+          day: d,
+          title: `Evaluasi Berkala ${count} (Hari 1 – ${d})`,
+          desc: `Uji pengingatan kumulatif seluruh kosakata dari Hari 1 hingga Hari ${d}.`,
+          coverageStartDay: 1,
+          coverageEndDay: d,
+          questionCount: 15
+        });
+        count++;
+      }
+    }
+    return list;
+  }, [daysConfig]);
+
+  const completedCheckpointsCount = useMemo(() => {
+    return periodicCheckpoints.filter(cp => periodicAssessments[cp.id]?.passed).length;
+  }, [periodicCheckpoints, periodicAssessments]);
+
+  const requiredCheckpointsCount = useMemo(() => {
+    return Math.min(2, periodicCheckpoints.length);
+  }, [periodicCheckpoints]);
+
+  const isFinalAssessmentUnlocked = useMemo(() => {
+    if (periodicCheckpoints.length === 0) return true;
+    return completedCheckpointsCount >= requiredCheckpointsCount;
+  }, [completedCheckpointsCount, requiredCheckpointsCount, periodicCheckpoints.length]);
+
+  const isFinalAssessmentPassed = useMemo(() => {
+    return Boolean(finalAssessment?.passed);
+  }, [finalAssessment]);
+
+  const isOfficialExamUnlocked = useMemo(() => {
+    if (currentLevel > 1) return true;
+    return isFinalAssessmentPassed;
+  }, [currentLevel, isFinalAssessmentPassed]);
+
   return (
     <LearningContext.Provider
       value={{
@@ -863,7 +1010,6 @@ export function LearningProvider({ children }) {
         favoriteCount,
         wordStatus,
         updateWordStatus,
-        markFirst150Mastered,
         resetAllProgress,
         currentLevel,
         setCurrentLevel,
@@ -881,6 +1027,17 @@ export function LearningProvider({ children }) {
         totalReviewing,
         totalLearning,
         getDayStats,
+        // Periodic & Final Assessment exports
+        periodicAssessments,
+        finalAssessment,
+        recordPeriodicAssessment,
+        recordFinalAssessment,
+        periodicCheckpoints,
+        completedCheckpointsCount,
+        requiredCheckpointsCount,
+        isFinalAssessmentUnlocked,
+        isFinalAssessmentPassed,
+        isOfficialExamUnlocked,
         // Auth properties
         user,
         authLoading,
