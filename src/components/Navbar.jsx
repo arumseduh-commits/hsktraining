@@ -19,7 +19,9 @@ export default function Navbar({ activeTab, setActiveTab, onOpenIosModal, onOpen
     audioSpeed, 
     setAudioSpeed, 
     candidateName,
-    currentLevel 
+    currentLevel,
+    user,
+    isCloudSyncing
   } = useLearning();
 
   const totalWords = words.length;
@@ -112,19 +114,28 @@ export default function Navbar({ activeTab, setActiveTab, onOpenIosModal, onOpen
             {/* User Profile Avatar Pill */}
             <button
               onClick={() => setActiveTab('profile')}
-              className={`flex items-center gap-2 pl-1.5 pr-3 py-1 rounded-full text-xs font-bold transition-all ${
+              className={`flex items-center gap-2 pl-1.5 pr-3 py-1 rounded-full text-xs font-bold transition-all relative ${
                 activeTab === 'profile'
                   ? 'bg-rose-500 text-white shadow-sm shadow-rose-500/25 ring-2 ring-rose-300'
                   : 'bg-slate-900 text-white hover:bg-slate-800'
               }`}
-              title="Menu Akun & Profil"
+              title={user ? `Akun Google: ${user.email}` : "Menu Akun & Profil"}
             >
-              <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-[11px] font-hanzi">
-                {candidateName ? candidateName.slice(0, 1).toUpperCase() : '汉'}
+              <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-[11px] font-hanzi overflow-hidden shrink-0 relative">
+                {user?.user_metadata?.avatar_url ? (
+                  <img src={user.user_metadata.avatar_url} alt="Profile" className="w-full h-full object-cover" />
+                ) : (
+                  <span>{candidateName ? candidateName.slice(0, 1).toUpperCase() : '汉'}</span>
+                )}
               </div>
               <span className="max-w-[80px] sm:max-w-[110px] truncate text-left">
-                {candidateName.split(' ')[0]}
+                {user?.user_metadata?.full_name ? user.user_metadata.full_name.split(' ')[0] : candidateName.split(' ')[0]}
               </span>
+              {user && (
+                <span className={`w-2 h-2 rounded-full absolute -top-0.5 -right-0.5 border border-white ${
+                  isCloudSyncing ? 'bg-amber-400 animate-pulse' : 'bg-emerald-400'
+                }`} title={isCloudSyncing ? "Menyinkronkan..." : "Cloud Sync Aktif"} />
+              )}
             </button>
           </div>
         </div>

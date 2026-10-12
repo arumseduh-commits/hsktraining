@@ -1,7 +1,9 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { HSK1_WORDS, DAYS_CONFIG as HSK1_DAYS } from '../data/hsk1Words';
 import { HSK2_WORDS, DAYS_CONFIG_HSK2 } from '../data/hsk2Words';
 import { loadLevelVocabulary, preCacheAllLevels } from '../services/vocabLoader';
+import { getSupabase, isSupabaseConfigured } from '../services/supabaseClient';
+import { fetchRemoteProgress, pushRemoteProgress, mergeLearningProgress } from '../services/cloudSync';
 
 const LearningContext = createContext();
 
@@ -74,6 +76,219 @@ export function LearningProvider({ children }) {
            'Pembelajar HSK';
   });
 
+  // Supabase Auth & Cloud Sync States
+  const [user, setUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [isCloudSyncing, setIsCloudSyncing] = useState(false);
+  const [lastSyncedAt, setLastSyncedAt] = useState(() => {
+    return localStorage.getItem(`${STORAGE_KEY}_last_synced_at`) || null;
+  });
+  const [isSupabaseReady, setIsSupabaseReady] = useState(() => isSupabaseConfigured());
+
+  // Ref to hold sync timeout for debouncing
+  const syncDebounceRef = useRef(null);
+
+  // Helper: Collect all level statuses from storage
+  const getAllWordStatuses = useCallback(() => {
+    const all = {};
+    for (let lvl = 1; lvl <= 9; lvl++) {
+      try {
+        const saved = localStorage.getItem(`${STORAGE_KEY}_status_lvl_${lvl}`);
+        if (saved) {
+          all[lvl] = JSON.parse(saved);
+        } else if (lvl === 1) {
+          const legacy = localStorage.getItem('hsk1_turbo_progress_v1_status');
+          if (legacy) all[1] = JSON.parse(legacy);
+        }
+      } catch {
+        // ignore
+      }
+    }
+    all[currentLevel] = wordStatus;
+    return all;
+  }, [currentLevel, wordStatus]);
+
+  // Helper: Apply merged statuses into localStorage and current state
+  const applyMergedWordStatuses = useCallback((mergedStatuses, targetLevel) => {
+    if (!mergedStatuses) return;
+    for (const [lvl, statuses] of Object.entries(mergedStatuses)) {
+      try {
+        localStorage.setItem(`${STORAGE_KEY}_status_lvl_${lvl}`, JSON.stringify(statuses));
+        if (Number(lvl) === 1) {
+          localStorage.setItem('hsk1_turbo_progress_v1_status', JSON.stringify(statuses));
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    const levelToLoad = targetLevel || currentLevel;
+    if (mergedStatuses[levelToLoad]) {
+      setWordStatus(mergedStatuses[levelToLoad]);
+    }
+  }, [currentLevel]);
+
+  // Handle User Signed In (Cloud Pull + Intelligent Merge + Cloud Push)
+  const handleUserSignedIn = useCallback(async (signedUser) => {
+    if (!signedUser) return;
+    setIsCloudSyncing(true);
+
+    try {
+      const { data: cloudData, error } = await fetchRemoteProgress(signedUser.id);
+      
+      const localData = {
+        candidateName,
+        currentLevel,
+        allWordStatuses: getAllWordStatuses(),
+        officialHistory,
+        examScores
+      };
+
+      if (cloudData) {
+        // Merge cloud with local
+        const merged = mergeLearningProgress(localData, cloudData);
+
+        if (merged.candidateName) {
+          setCandidateName(merged.candidateName);
+        }
+        if (merged.currentLevel) {
+          setCurrentLevel(merged.currentLevel);
+        }
+        if (merged.officialHistory) {
+          setOfficialHistory(merged.officialHistory);
+        }
+        if (merged.examScores) {
+          setExamScores(merged.examScores);
+        }
+        applyMergedWordStatuses(merged.allWordStatuses, merged.currentLevel);
+
+        // Push merged state back to Supabase to guarantee parity
+        await pushRemoteProgress(signedUser, merged);
+
+        const now = new Date().toISOString();
+        setLastSyncedAt(now);
+        localStorage.setItem(`${STORAGE_KEY}_last_synced_at`, now);
+      } else {
+        // User baru di cloud: push data lokal yang ada saat ini
+        const userDisplayName = signedUser.user_metadata?.full_name || signedUser.email?.split('@')[0] || candidateName;
+        if (userDisplayName && candidateName === 'Pembelajar HSK') {
+          setCandidateName(userDisplayName);
+          localData.candidateName = userDisplayName;
+        }
+
+        await pushRemoteProgress(signedUser, localData);
+        const now = new Date().toISOString();
+        setLastSyncedAt(now);
+        localStorage.setItem(`${STORAGE_KEY}_last_synced_at`, now);
+      }
+    } catch (err) {
+      console.error('Gagal sinkronisasi data cloud saat login:', err);
+    } finally {
+      setIsCloudSyncing(false);
+    }
+  }, [candidateName, currentLevel, getAllWordStatuses, officialHistory, examScores, applyMergedWordStatuses]);
+
+  // Initialize Supabase Auth Listener
+  useEffect(() => {
+    const supabase = getSupabase();
+    setIsSupabaseReady(isSupabaseConfigured());
+
+    if (!supabase) {
+      setAuthLoading(false);
+      return;
+    }
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        setUser(session.user);
+        handleUserSignedIn(session.user);
+      }
+      setAuthLoading(false);
+    }).catch(err => {
+      console.error('Session check error:', err);
+      setAuthLoading(false);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session?.user) {
+        setUser(session.user);
+        if (event === 'SIGNED_IN') {
+          await handleUserSignedIn(session.user);
+        }
+      } else {
+        setUser(null);
+      }
+    });
+
+    return () => {
+      subscription?.unsubscribe();
+    };
+  }, [handleUserSignedIn]);
+
+  // Refresh configuration when modal updates credentials
+  const refreshSupabaseState = useCallback(() => {
+    const ready = isSupabaseConfigured();
+    setIsSupabaseReady(ready);
+    const supabase = getSupabase();
+    if (supabase) {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session?.user) {
+          setUser(session.user);
+          handleUserSignedIn(session.user);
+        }
+      });
+    }
+  }, [handleUserSignedIn]);
+
+  // Google Login Trigger
+  const loginWithGoogle = async () => {
+    const supabase = getSupabase();
+    if (!supabase) {
+      throw new Error('Supabase belum terkonfigurasi. Silakan atur URL & Anon Key terlebih dahulu.');
+    }
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: window.location.origin + window.location.pathname
+      }
+    });
+    if (error) throw error;
+    return data;
+  };
+
+  // Logout Trigger
+  const logout = async () => {
+    const supabase = getSupabase();
+    if (supabase) {
+      await supabase.auth.signOut();
+    }
+    setUser(null);
+  };
+
+  // Manual Trigger: Sinkronkan Sekarang
+  const syncNow = async () => {
+    if (!user) return;
+    setIsCloudSyncing(true);
+    try {
+      const payload = {
+        candidateName,
+        currentLevel,
+        allWordStatuses: getAllWordStatuses(),
+        examScores,
+        officialHistory
+      };
+      const { success } = await pushRemoteProgress(user, payload);
+      if (success) {
+        const now = new Date().toISOString();
+        setLastSyncedAt(now);
+        localStorage.setItem(`${STORAGE_KEY}_last_synced_at`, now);
+      }
+    } catch (err) {
+      console.error('Manual sync error:', err);
+    } finally {
+      setIsCloudSyncing(false);
+    }
+  };
+
   // Auto-cache and load words when currentLevel changes
   useEffect(() => {
     let isCancelled = false;
@@ -117,7 +332,7 @@ export function LearningProvider({ children }) {
     preCacheAllLevels();
   }, []);
 
-  // Save word status to localStorage for the active level
+  // Save word status to localStorage and trigger cloud debounced auto-sync
   useEffect(() => {
     try {
       localStorage.setItem(`${STORAGE_KEY}_status_lvl_${currentLevel}`, JSON.stringify(wordStatus));
@@ -127,7 +342,15 @@ export function LearningProvider({ children }) {
     } catch (e) {
       console.error(e);
     }
-  }, [wordStatus, currentLevel]);
+
+    // Debounced Cloud Sync if user is logged in
+    if (user) {
+      if (syncDebounceRef.current) clearTimeout(syncDebounceRef.current);
+      syncDebounceRef.current = setTimeout(() => {
+        syncNow();
+      }, 1500);
+    }
+  }, [wordStatus, currentLevel, user]);
 
   useEffect(() => {
     try {
@@ -238,7 +461,17 @@ export function LearningProvider({ children }) {
         totalMastered,
         totalReviewing,
         totalLearning,
-        getDayStats
+        getDayStats,
+        // Cloud & Google Auth properties
+        user,
+        authLoading,
+        isCloudSyncing,
+        lastSyncedAt,
+        isSupabaseReady,
+        loginWithGoogle,
+        logout,
+        syncNow,
+        refreshSupabaseState
       }}
     >
       {children}
