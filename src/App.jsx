@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { LearningProvider } from './context/LearningContext';
+import { LearningProvider, useLearning } from './context/LearningContext';
 import Navbar from './components/Navbar';
 import HomeScreen from './components/HomeScreen';
 import StudyHubView from './components/StudyHubView';
@@ -8,6 +8,7 @@ import OfficialExamView from './components/OfficialExamView';
 import ProfileView from './components/ProfileView';
 import IosModal from './components/IosModal';
 import DialogueListeningModal from './components/DialogueListeningModal';
+import LoginScreen from './components/LoginScreen';
 import { 
   Home, 
   BookOpen, 
@@ -17,9 +18,30 @@ import {
 } from 'lucide-react';
 
 function AppContent() {
+  const { user, authLoading } = useLearning();
   const [activeTab, setActiveTab] = useState('home');
   const [isIosModalOpen, setIsIosModalOpen] = useState(false);
   const [isDialogueModalOpen, setIsDialogueModalOpen] = useState(false);
+
+  // Splash screen saat mengecek sesi login Supabase
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-indigo-950 flex flex-col items-center justify-center text-white space-y-4">
+        <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-rose-500 to-amber-400 text-white font-black text-3xl flex items-center justify-center animate-pulse font-hanzi shadow-2xl shadow-rose-500/30 border border-white/20">
+          汉
+        </div>
+        <div className="flex items-center gap-2 text-xs font-semibold text-slate-400">
+          <div className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
+          <span>Memeriksa Sesi Akun...</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Wajib Login dengan Google sebelum masuk ke dalam materi HSK
+  if (!user) {
+    return <LoginScreen />;
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-[#f8fafc] text-slate-900 pb-24 sm:pb-12">
