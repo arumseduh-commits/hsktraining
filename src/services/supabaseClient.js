@@ -1,5 +1,9 @@
 import { createClient } from '@supabase/supabase-js';
 
+// Konfigurasi Project Supabase bawaan aplikasi
+const DEFAULT_SUPABASE_URL = 'https://dogwcmjyjppwbrpmgiep.supabase.co';
+const DEFAULT_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRvZ3djbWp5anBwd2JycG1naWVwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE3OTI3MjMsImV4cCI6MjEwNzM2ODcyM30.MMUEwyt044ig0rMQZfgkLPLeqNV_fCbh31B1-8MbWl0';
+
 const STORAGE_URL_KEY = 'hsk_supabase_url';
 const STORAGE_KEY_KEY = 'hsk_supabase_anon_key';
 
@@ -14,8 +18,8 @@ export function getSupabaseConfig() {
   const localUrl = localStorage.getItem(STORAGE_URL_KEY) || '';
   const localKey = localStorage.getItem(STORAGE_KEY_KEY) || '';
 
-  const url = localUrl.trim() || envUrl.trim();
-  const anonKey = localKey.trim() || envKey.trim();
+  const url = localUrl.trim() || envUrl.trim() || DEFAULT_SUPABASE_URL;
+  const anonKey = localKey.trim() || envKey.trim() || DEFAULT_SUPABASE_ANON_KEY;
 
   return {
     url,

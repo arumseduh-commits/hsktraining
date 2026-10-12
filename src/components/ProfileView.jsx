@@ -13,14 +13,11 @@ import {
   Cloud,
   RefreshCw,
   LogOut,
-  Database,
-  ExternalLink,
   AlertCircle
 } from 'lucide-react';
 import { useLearning } from '../context/LearningContext';
 import { TOTAL_HSK9_WORDS } from '../data/hskLevelsConfig';
 import OfficialCertificateModal from './OfficialCertificateModal';
-import SupabaseConfigModal from './SupabaseConfigModal';
 
 function GoogleIcon({ className = "w-4 h-4" }) {
   return (
@@ -72,7 +69,6 @@ export default function ProfileView() {
   const [inputName, setInputName] = useState(candidateName);
   const [isSavedNotice, setIsSavedNotice] = useState(false);
   const [selectedCert, setSelectedCert] = useState(null);
-  const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
   const [loginError, setLoginError] = useState(null);
 
   const handleSaveName = (e) => {
@@ -87,10 +83,6 @@ export default function ProfileView() {
 
   const handleGoogleLogin = async () => {
     setLoginError(null);
-    if (!isSupabaseReady) {
-      setIsConfigModalOpen(true);
-      return;
-    }
     try {
       await loginWithGoogle();
     } catch (err) {
@@ -126,21 +118,13 @@ export default function ProfileView() {
             <div>
               <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-bold border border-emerald-500/30">
                 <ShieldCheck size={11} />
-                <span>Cloud Sync Supabase</span>
+                <span>Cloud Sync Otomatis</span>
               </div>
               <h3 className="text-base font-bold text-white mt-0.5">
-                Penyimpanan Data Cloud
+                Simpan Progres ke Cloud
               </h3>
             </div>
           </div>
-
-          <button
-            onClick={() => setIsConfigModalOpen(true)}
-            className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-indigo-200 transition-colors"
-            title="Pengaturan Koneksi Supabase"
-          >
-            <Database size={16} />
-          </button>
         </div>
 
         {/* User Logged In State */}
@@ -216,12 +200,6 @@ export default function ProfileView() {
               <GoogleIcon className="w-4 h-4" />
               <span>Masuk dengan Google</span>
             </button>
-
-            {!isSupabaseReady && (
-              <p className="text-[11px] text-amber-300/90 text-center">
-                ⚠️ Supabase belum dihubungkan. Klik ikon database <Database size={12} className="inline" /> di kanan atas untuk mengisi URL & Anon Key.
-              </p>
-            )}
           </div>
         )}
       </div>
@@ -435,17 +413,6 @@ export default function ProfileView() {
         </div>
 
         <div className="pt-2 flex items-center justify-between text-xs">
-          <span className="font-medium text-slate-600">Database & Cloud Sync:</span>
-          <button
-            onClick={() => setIsConfigModalOpen(true)}
-            className="px-3 py-1.5 text-indigo-600 hover:bg-indigo-50 rounded-xl font-bold border border-indigo-200 transition-colors flex items-center gap-1.5"
-          >
-            <Database size={13} />
-            <span>Koneksi Supabase</span>
-          </button>
-        </div>
-
-        <div className="pt-2 flex items-center justify-between text-xs">
           <span className="font-medium text-slate-600">Reset Semua Data Belajar:</span>
           <button
             onClick={resetAllProgress}
@@ -463,13 +430,6 @@ export default function ProfileView() {
           onClose={() => setSelectedCert(null)}
         />
       )}
-
-      {/* Supabase Config Modal */}
-      <SupabaseConfigModal
-        isOpen={isConfigModalOpen}
-        onClose={() => setIsConfigModalOpen(false)}
-        onConfigSaved={refreshSupabaseState}
-      />
     </div>
   );
 }
