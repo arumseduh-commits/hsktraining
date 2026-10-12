@@ -13,7 +13,7 @@ import { speakChinese } from '../utils/speech';
 import { useLearning } from '../context/LearningContext';
 
 export default function SentenceBuilder() {
-  const { audioSpeed } = useLearning();
+  const { audioSpeed, recordWordLearnedToday } = useLearning();
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const currentDrill = SENTENCE_DRILLS[currentIndex];
@@ -59,6 +59,9 @@ export default function SentenceBuilder() {
       setStatus('correct');
       speakChinese(currentDrill.targetHz, audioSpeed);
       confetti({ particleCount: 25, spread: 45 });
+      if (recordWordLearnedToday) {
+        recordWordLearnedToday(currentDrill.targetWordId || `sentence_${currentIndex}`);
+      }
     } else {
       setStatus('wrong');
     }

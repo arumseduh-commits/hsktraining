@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Sparkles, 
@@ -24,12 +24,15 @@ import {
 } from 'lucide-react';
 import { HSK_LEVELS_CONFIG } from '../data/hskLevelsConfig';
 import { useLearning } from '../context/LearningContext';
+import DailyGoalWidget from './DailyGoalWidget';
+import DailyTargetModal from './DailyTargetModal';
 
 export default function HomeScreen({ 
   onOpenDialogueModal, 
   onOpenLevelSelector 
 }) {
   const navigate = useNavigate();
+  const [isTargetModalOpen, setIsTargetModalOpen] = useState(false);
   const { 
     totalMastered, 
     totalReviewing,
@@ -228,6 +231,9 @@ export default function HomeScreen({
         </div>
       </div>
 
+      {/* Daily Goal & Streak Check-in Widget (SuperChinese Style) */}
+      <DailyGoalWidget onOpenTargetModal={() => setIsTargetModalOpen(true)} />
+
       {/* Quick 150 Words Unlock Widget (For HSK 1 Beginners fast start) */}
       {currentLevel === 1 && totalMastered < 150 && (
         <div className="p-4 rounded-3xl bg-amber-50/90 border border-amber-200/80 flex items-center justify-between gap-3 shadow-2xs">
@@ -368,6 +374,12 @@ export default function HomeScreen({
           <ChevronDown size={13} />
         </button>
       </div>
+
+      {/* Daily Target Setting Modal */}
+      <DailyTargetModal 
+        isOpen={isTargetModalOpen} 
+        onClose={() => setIsTargetModalOpen(false)} 
+      />
     </div>
   );
 }

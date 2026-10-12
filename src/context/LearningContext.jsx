@@ -91,6 +91,51 @@ export function LearningProvider({ children }) {
     }
   };
 
+  // Daily Goal & Streak Tracking (SuperChinese Style)
+  const [dailyTarget, setDailyTargetState] = useState(() => {
+    try {
+      const saved = localStorage.getItem(`${STORAGE_KEY}_daily_target`);
+      return saved ? Math.max(5, Math.min(50, Number(saved))) : 15;
+    } catch {
+      return 15;
+    }
+  });
+
+  const [dailyLog, setDailyLog] = useState(() => {
+    try {
+      const saved = localStorage.getItem(`${STORAGE_KEY}_daily_log`);
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  const [streakData, setStreakData] = useState(() => {
+    try {
+      const saved = localStorage.getItem(`${STORAGE_KEY}_streak_data`);
+      return saved ? JSON.parse(saved) : { currentStreak: 0, maxStreak: 0, lastCheckInDate: null };
+    } catch {
+      return { currentStreak: 0, maxStreak: 0, lastCheckInDate: null };
+    }
+  });
+
+  // Date helper functions
+  const getTodayDateStr = () => {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const getDayDifference = (dateStr1, dateStr2) => {
+    if (!dateStr1 || !dateStr2) return null;
+    const d1 = new Date(dateStr1 + 'T00:00:00');
+    const d2 = new Date(dateStr2 + 'T00:00:00');
+    const diffTime = Math.abs(d2 - d1);
+    return Math.round(diffTime / (1000 * 60 * 60 * 24));
+  };
+
   // Supabase Auth States
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -104,7 +149,10 @@ export function LearningProvider({ children }) {
     currentLevel,
     wordStatus,
     examScores,
-    officialHistory
+    officialHistory,
+    dailyTarget,
+    dailyLog,
+    streakData
   });
 
   // Keep stateRef fresh without triggering re-renders
@@ -115,9 +163,12 @@ export function LearningProvider({ children }) {
       currentLevel,
       wordStatus,
       examScores,
-      officialHistory
+      officialHistory,
+      dailyTarget,
+      dailyLog,
+      streakData
     };
-  }, [user, candidateName, currentLevel, wordStatus, examScores, officialHistory]);
+  }, [user, candidateName, currentLevel, wordStatus, examScores, officialHistory, dailyTarget, dailyLog, streakData]);
 
   // Helper: Collect all level statuses from storage
   const getAllWordStatusesFromStorage = () => {
@@ -137,6 +188,12 @@ export function LearningProvider({ children }) {
     }
     // inject current in-memory status
     all[stateRef.current.currentLevel] = stateRef.current.wordStatus;
+    // inject meta for daily target and streak sync
+    all._meta = {
+      dailyTarget: stateRef.current.dailyTarget,
+      dailyLog: stateRef.current.dailyLog,
+      streakData: stateRef.current.streakData
+    };
     return all;
   };
 
@@ -216,6 +273,33 @@ export function LearningProvider({ children }) {
           const activeLvl = merged.currentLevel || stateRef.current.currentLevel;
           if (merged.allWordStatuses[activeLvl]) {
             setWordStatus(merged.allWordStatuses[activeLvl]);
+          }
+        }
+
+        // Restore daily target & streak metadata from cloud if exists
+        const cloudMeta = cloudData?.word_status?._meta;
+        if (cloudMeta) {
+          if (cloudMeta.dailyTarget) {
+            setDailyTargetState(cloudMeta.dailyTarget);
+            localStorage.setItem(`${STORAGE_KEY}_daily_target`, cloudMeta.dailyTarget.toString());
+          }
+          if (cloudMeta.dailyLog) {
+            setDailyLog(prev => {
+              const mergedLogs = { ...prev, ...cloudMeta.dailyLog };
+              localStorage.setItem(`${STORAGE_KEY}_daily_log`, JSON.stringify(mergedLogs));
+              return mergedLogs;
+            });
+          }
+          if (cloudMeta.streakData) {
+            setStreakData(prev => {
+              const mergedStreak = {
+                currentStreak: Math.max(prev.currentStreak || 0, cloudMeta.streakData.currentStreak || 0),
+                maxStreak: Math.max(prev.maxStreak || 0, cloudMeta.streakData.maxStreak || 0),
+                lastCheckInDate: cloudMeta.streakData.lastCheckInDate || prev.lastCheckInDate
+              };
+              localStorage.setItem(`${STORAGE_KEY}_streak_data`, JSON.stringify(mergedStreak));
+              return mergedStreak;
+            });
           }
         }
 
@@ -375,12 +459,208 @@ export function LearningProvider({ children }) {
     }
   }, [candidateName]);
 
+  // --- DAILY GOAL & STREAK LOGIC (SuperChinese Style) ---
+  const todayStr = getTodayDateStr();
+  const todayEntry = dailyLog[todayStr] || { wordIds: [], checkedIn: false };
+  const todayLearnedCount = todayEntry.wordIds ? todayEntry.wordIds.length : 0;
+  const todayTargetReached = todayLearnedCount >= dailyTarget;
+
+  // Active streak calculation (with 1-day grace period)
+  const activeStreak = (() => {
+    if (!streakData.lastCheckInDate) return 0;
+    const diff = getDayDifference(streakData.lastCheckInDate, todayStr);
+    if (diff === null) return 0;
+    // 0 = checked in today, 1 = checked in yesterday, 2 = 1-day grace period active
+    if (diff <= 2) {
+      return streakData.currentStreak || 0;
+    }
+    return 0;
+  })();
+
+  const isGracePeriodActive = (() => {
+    if (!streakData.lastCheckInDate) return false;
+    const diff = getDayDifference(streakData.lastCheckInDate, todayStr);
+    return diff === 2 && !todayEntry.checkedIn;
+  })();
+
+  // Record word practiced today
+  const recordWordLearnedToday = useCallback((wordId) => {
+    if (!wordId) return;
+    const today = getTodayDateStr();
+
+    setDailyLog(prevLog => {
+      const current = prevLog[today] || { wordIds: [], checkedIn: false };
+      const currentSet = new Set(current.wordIds || []);
+      currentSet.add(wordId);
+      const newWordIds = Array.from(currentSet);
+      const newCount = newWordIds.length;
+      const targetReached = newCount >= stateRef.current.dailyTarget;
+
+      const checkedIn = current.checkedIn || targetReached;
+
+      // When newly achieving target today: auto check-in & increment streak
+      if (!current.checkedIn && targetReached) {
+        setStreakData(prevStreak => {
+          let updatedStreak = prevStreak.currentStreak || 0;
+          const lastDate = prevStreak.lastCheckInDate;
+
+          if (!lastDate) {
+            updatedStreak = 1;
+          } else {
+            const diff = getDayDifference(lastDate, today);
+            if (diff === 0) {
+              updatedStreak = prevStreak.currentStreak || 1;
+            } else if (diff === 1 || diff === 2) {
+              // 1 = yesterday, 2 = 1-day grace period! Streak preserved
+              updatedStreak = (prevStreak.currentStreak || 0) + 1;
+            } else {
+              // Grace period exceeded, resets to 1
+              updatedStreak = 1;
+            }
+          }
+
+          const newMax = Math.max(prevStreak.maxStreak || 0, updatedStreak);
+          const newStreakObj = {
+            currentStreak: updatedStreak,
+            maxStreak: newMax,
+            lastCheckInDate: today
+          };
+
+          try {
+            localStorage.setItem(`${STORAGE_KEY}_streak_data`, JSON.stringify(newStreakObj));
+          } catch (e) {
+            console.error(e);
+          }
+          return newStreakObj;
+        });
+      }
+
+      const updatedLog = {
+        ...prevLog,
+        [today]: {
+          wordIds: newWordIds,
+          checkedIn
+        }
+      };
+
+      try {
+        localStorage.setItem(`${STORAGE_KEY}_daily_log`, JSON.stringify(updatedLog));
+      } catch (e) {
+        console.error(e);
+      }
+
+      return updatedLog;
+    });
+
+    scheduleSilentCloudSync();
+  }, [scheduleSilentCloudSync]);
+
+  // Set custom daily target (5 to 50 words)
+  const setCustomDailyTarget = useCallback((newTarget) => {
+    const clamped = Math.max(5, Math.min(50, Number(newTarget) || 15));
+    setDailyTargetState(clamped);
+    try {
+      localStorage.setItem(`${STORAGE_KEY}_daily_target`, clamped.toString());
+    } catch (e) {
+      console.error(e);
+    }
+
+    // Check if current count now satisfies the new target
+    const today = getTodayDateStr();
+    setDailyLog(prevLog => {
+      const current = prevLog[today];
+      if (current && (current.wordIds?.length || 0) >= clamped && !current.checkedIn) {
+        const updated = {
+          ...prevLog,
+          [today]: { ...current, checkedIn: true }
+        };
+        try {
+          localStorage.setItem(`${STORAGE_KEY}_daily_log`, JSON.stringify(updated));
+        } catch (e) {
+          console.error(e);
+        }
+
+        setStreakData(prevStreak => {
+          let updatedStreak = prevStreak.currentStreak || 0;
+          const lastDate = prevStreak.lastCheckInDate;
+          if (!lastDate) {
+            updatedStreak = 1;
+          } else {
+            const diff = getDayDifference(lastDate, today);
+            if (diff === 0) {
+              updatedStreak = prevStreak.currentStreak || 1;
+            } else if (diff === 1 || diff === 2) {
+              updatedStreak = (prevStreak.currentStreak || 0) + 1;
+            } else {
+              updatedStreak = 1;
+            }
+          }
+          const newStreakObj = {
+            currentStreak: updatedStreak,
+            maxStreak: Math.max(prevStreak.maxStreak || 0, updatedStreak),
+            lastCheckInDate: today
+          };
+          try {
+            localStorage.setItem(`${STORAGE_KEY}_streak_data`, JSON.stringify(newStreakObj));
+          } catch (e) {
+            console.error(e);
+          }
+          return newStreakObj;
+        });
+
+        return updated;
+      }
+      return prevLog;
+    });
+
+    scheduleSilentCloudSync();
+  }, [scheduleSilentCloudSync]);
+
+  // Get current week's 7 days for the visual check-in strip
+  const getWeeklyDays = useCallback(() => {
+    const now = new Date();
+    const currentDayOfWeek = now.getDay(); // 0: Sun, 1: Mon...
+    const distanceToMonday = (currentDayOfWeek + 6) % 7;
+    
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - distanceToMonday);
+    
+    const week = [];
+    const dayNames = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
+    const today = getTodayDateStr();
+
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + i);
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      const dateStr = `${yyyy}-${mm}-${dd}`;
+      const logEntry = dailyLog[dateStr];
+      const count = logEntry?.wordIds ? logEntry.wordIds.length : 0;
+      const isChecked = !!logEntry?.checkedIn;
+
+      week.push({
+        label: dayNames[i],
+        dateStr,
+        dayNumber: d.getDate(),
+        isToday: dateStr === today,
+        isPast: dateStr < today,
+        isFuture: dateStr > today,
+        checkedIn: isChecked,
+        count
+      });
+    }
+    return week;
+  }, [dailyLog]);
+
   // User Actions (Trigger Silent Debounced Cloud Sync)
   const updateWordStatus = (id, status) => {
     setWordStatus(prev => {
       const updated = { ...prev, [id]: status };
       return updated;
     });
+    recordWordLearnedToday(id);
     scheduleSilentCloudSync();
   };
 
@@ -471,7 +751,18 @@ export function LearningProvider({ children }) {
         logout,
         // Onboarding Level Selection
         hasSelectedLevel,
-        setHasSelectedLevel
+        setHasSelectedLevel,
+        // Daily Target & Streak Properties
+        dailyTarget,
+        setCustomDailyTarget,
+        todayLearnedCount,
+        todayTargetReached,
+        activeStreak,
+        isGracePeriodActive,
+        streakData,
+        dailyLog,
+        getWeeklyDays,
+        recordWordLearnedToday
       }}
     >
       {children}

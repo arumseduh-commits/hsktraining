@@ -14,7 +14,7 @@ import { useLearning } from '../context/LearningContext';
 import { speakChinese } from '../utils/speech';
 
 export default function WritingCanvas({ initialDay = 1 }) {
-  const { words, audioSpeed, updateWordStatus, daysConfig } = useLearning();
+  const { words, audioSpeed, updateWordStatus, daysConfig, recordWordLearnedToday } = useLearning();
   const sprintDaysList = daysConfig ? daysConfig.map(d => d.day) : [1, 2, 3, 4];
 
   const [selectedDay, setSelectedDay] = useState(initialDay);
@@ -50,6 +50,10 @@ export default function WritingCanvas({ initialDay = 1 }) {
 
     historyRef.current.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
     if (historyRef.current.length > 10) historyRef.current.shift();
+
+    if (recordWordLearnedToday && currentWord?.id) {
+      recordWordLearnedToday(currentWord.id);
+    }
 
     ctx.beginPath();
     ctx.moveTo(x, y);
