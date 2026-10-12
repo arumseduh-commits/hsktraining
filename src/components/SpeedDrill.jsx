@@ -19,6 +19,12 @@ export default function SpeedDrill({ initialDay = 'all' }) {
   const [drillMode, setDrillMode] = useState('hz_to_meaning');
   const [selectedDay, setSelectedDay] = useState(initialDay);
   const [isPlaying, setIsPlaying] = useState(false);
+
+  useEffect(() => {
+    if (initialDay !== undefined && initialDay !== null) {
+      setSelectedDay(initialDay);
+    }
+  }, [initialDay]);
   const [timeLeft, setTimeLeft] = useState(60);
   const [score, setScore] = useState(0);
   const [streak, setStreak] = useState(0);
@@ -181,14 +187,14 @@ export default function SpeedDrill({ initialDay = 'all' }) {
           </div>
 
           {/* Day selection */}
-          <div className="flex items-center justify-center gap-1 overflow-x-auto no-scrollbar py-1">
+          <div className="flex items-center justify-start sm:justify-center gap-1 overflow-x-auto no-scrollbar scroll-smooth py-1 max-w-full">
             {['all', ...sprintDaysList].map(d => (
               <button
                 key={d}
                 onClick={() => setSelectedDay(d)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap cursor-pointer shrink-0 ${
                   selectedDay === d
-                    ? 'bg-slate-900 text-white font-bold'
+                    ? 'bg-slate-900 text-white font-bold shadow-xs'
                     : 'text-slate-500 hover:bg-slate-100'
                 }`}
               >

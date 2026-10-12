@@ -68,10 +68,10 @@ export default function VocabListView() {
         {/* Filter Pills */}
         <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
           {/* Day Pills */}
-          <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
+          <div className="flex items-center gap-1 overflow-x-auto no-scrollbar scroll-smooth max-w-full sm:max-w-md py-0.5">
             <button
               onClick={() => setSelectedDay('all')}
-              className={`px-3 py-1 rounded-xl text-xs font-semibold transition-all ${
+              className={`px-3 py-1 rounded-xl text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
                 selectedDay === 'all' ? 'bg-slate-900 text-white font-bold' : 'text-slate-500 hover:bg-slate-100'
               }`}
             >
@@ -81,8 +81,8 @@ export default function VocabListView() {
               <button
                 key={d}
                 onClick={() => setSelectedDay(d)}
-                className={`px-3 py-1 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
-                  selectedDay === d ? 'bg-rose-500 text-white font-bold' : 'text-slate-500 hover:bg-slate-100'
+                className={`px-2.5 py-1 rounded-xl text-xs font-semibold transition-all whitespace-nowrap cursor-pointer ${
+                  selectedDay === d ? 'bg-rose-500 text-white font-bold shadow-xs' : 'text-slate-500 hover:bg-slate-100'
                 }`}
               >
                 H{d}

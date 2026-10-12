@@ -22,6 +22,13 @@ export default function WritingCanvas({ initialDay = 1 }) {
   const [showGhost, setShowGhost] = useState(true);
   const [brushWidth, setBrushWidth] = useState(7);
 
+  useEffect(() => {
+    if (initialDay !== undefined && initialDay !== null) {
+      setSelectedDay(initialDay);
+      setCurrentIndex(0);
+    }
+  }, [initialDay]);
+
   const canvasRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const historyRef = useRef([]);
@@ -122,12 +129,12 @@ export default function WritingCanvas({ initialDay = 1 }) {
     <div className="max-w-md mx-auto space-y-4 animate-fade-in pb-16">
       {/* Day Filter Pills */}
       <div className="flex items-center justify-between gap-2 p-1.5 bg-slate-100/70 rounded-2xl border border-slate-200/50">
-        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
+        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar scroll-smooth max-w-[240px] sm:max-w-xs py-0.5">
           {['all', ...sprintDaysList].map(d => (
             <button
               key={d}
               onClick={() => { setSelectedDay(d); setCurrentIndex(0); }}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap cursor-pointer ${
                 selectedDay === d
                   ? 'bg-rose-500 text-white font-bold shadow-xs'
                   : 'text-slate-500 hover:text-slate-800'

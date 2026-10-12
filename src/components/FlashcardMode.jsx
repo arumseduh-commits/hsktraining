@@ -28,6 +28,13 @@ export default function FlashcardMode({ initialDay = 1 }) {
   const [hidePinyinInitially, setHidePinyinInitially] = useState(true);
   const [shuffled, setShuffled] = useState(false);
 
+  useEffect(() => {
+    if (initialDay !== undefined && initialDay !== null) {
+      setSelectedDay(initialDay);
+      setCurrentIndex(0);
+    }
+  }, [initialDay]);
+
   // Filter words
   const filteredWords = useMemo(() => {
     let list = words;
@@ -147,10 +154,10 @@ export default function FlashcardMode({ initialDay = 1 }) {
       {/* Sleek Controls Bar */}
       <div className="flex flex-wrap items-center justify-between gap-2 p-1.5 bg-slate-100/70 rounded-2xl border border-slate-200/50">
         {/* Day Pills */}
-        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
+        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar max-w-full sm:max-w-xs scroll-smooth py-0.5">
           <button
             onClick={() => { setSelectedDay('all'); setCurrentIndex(0); }}
-            className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
               selectedDay === 'all'
                 ? 'bg-white shadow-xs text-slate-900 font-bold'
                 : 'text-slate-500 hover:text-slate-800'
@@ -162,7 +169,7 @@ export default function FlashcardMode({ initialDay = 1 }) {
             <button
               key={d}
               onClick={() => { setSelectedDay(d); setCurrentIndex(0); }}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap cursor-pointer ${
                 selectedDay === d
                   ? 'bg-rose-500 text-white shadow-xs font-bold'
                   : 'text-slate-500 hover:text-slate-800'

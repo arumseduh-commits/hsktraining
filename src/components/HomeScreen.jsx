@@ -43,7 +43,8 @@ export default function HomeScreen({
     markFirst150Mastered,
     officialHistory,
     user,
-    dailyTarget
+    dailyTarget,
+    currentActiveDay
   } = useLearning();
 
   const currentLevelConfig = HSK_LEVELS_CONFIG.find(l => l.level === currentLevel) || HSK_LEVELS_CONFIG[0];
@@ -60,7 +61,7 @@ export default function HomeScreen({
     {
       id: 'roadmap',
       title: `Sprint Roadmap (~${calculatedDays} Hari)`,
-      desc: `Target mandiri ${dailyTarget} kata/hari menuju kelulusan HSK ${currentLevel} (~${calculatedDays} hari).`,
+      desc: `Fokus aktif: Hari ${currentActiveDay || 1}. Target mandiri ${dailyTarget} kata/hari menuju kelulusan HSK ${currentLevel}.`,
       tag: 'Jadwal Harian',
       icon: Calendar,
       color: 'bg-rose-50 text-rose-600 border-rose-100',
@@ -221,7 +222,7 @@ export default function HomeScreen({
         <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-300 pt-1 border-t border-white/10">
           <div className="flex items-center gap-1.5">
             <Clock size={13} className="text-rose-400" />
-            <span>Target Mandiri: <strong>{dailyTarget} kata/hari (~{calculatedDays} Hari)</strong></span>
+            <span>Target Mandiri: <strong>{dailyTarget} kata/hari (~{calculatedDays} Hari)</strong> • Fokus: <strong>Hari {currentActiveDay || 1}</strong></span>
           </div>
           <button
             onClick={onOpenLevelSelector}

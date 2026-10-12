@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { HSK1_WORDS, DAYS_CONFIG as HSK1_DAYS } from '../data/hsk1Words';
 import { HSK2_WORDS, DAYS_CONFIG_HSK2 } from '../data/hsk2Words';
 import { loadLevelVocabulary, preCacheAllLevels } from '../services/vocabLoader';
@@ -20,13 +20,9 @@ export function LearningProvider({ children }) {
     }
   });
 
-  // Dynamic Words & Sprint Days Configuration
-  const [words, setWords] = useState(() => {
+  // Base raw vocabulary loaded for current level
+  const [rawWords, setRawWords] = useState(() => {
     return currentLevel === 2 ? HSK2_WORDS : HSK1_WORDS;
-  });
-
-  const [daysConfig, setDaysConfig] = useState(() => {
-    return currentLevel === 2 ? DAYS_CONFIG_HSK2 : HSK1_DAYS;
   });
 
   // Track word mastery status for the active level
@@ -100,6 +96,77 @@ export function LearningProvider({ children }) {
       return 15;
     }
   });
+
+  // Dynamic Days Configuration based on user's chosen dailyTarget
+  const daysConfig = useMemo(() => {
+    if (!rawWords || rawWords.length === 0) return [];
+    const target = Math.max(1, dailyTarget || 15);
+    const total = rawWords.length;
+    const totalDays = Math.ceil(total / target);
+
+    const gradientPalette = [
+      "from-rose-500 to-red-600",
+      "from-amber-500 to-orange-600",
+      "from-emerald-500 to-teal-600",
+      "from-blue-500 to-indigo-600",
+      "from-purple-500 to-pink-600",
+      "from-cyan-500 to-teal-600",
+      "from-violet-500 to-indigo-600",
+      "from-fuchsia-500 to-rose-600"
+    ];
+
+    const iconPalette = ["Compass", "Home", "Zap", "BookOpen", "Sparkles", "Target", "Rocket", "Award"];
+
+    const result = [];
+    for (let d = 1; d <= totalDays; d++) {
+      const start = (d - 1) * target + 1;
+      const end = Math.min(d * target, total);
+      const slice = rawWords.slice((d - 1) * target, end);
+
+      // Analyze dominant category
+      const catCounts = {};
+      slice.forEach(w => {
+        const c = w.cat || 'Kosakata';
+        catCounts[c] = (catCounts[c] || 0) + 1;
+      });
+      let topCat = 'Kosakata Inti';
+      let maxCount = 0;
+      for (const [c, cnt] of Object.entries(catCounts)) {
+        if (cnt > maxCount) {
+          maxCount = cnt;
+          topCat = c;
+        }
+      }
+
+      const colorIndex = (d - 1) % gradientPalette.length;
+      const iconIndex = (d - 1) % iconPalette.length;
+
+      result.push({
+        day: d,
+        title: `Hari ${d}: Kosakata ${start} – ${end}`,
+        targetWords: `${start} - ${end}`,
+        count: slice.length,
+        startIdx: start,
+        endIdx: end,
+        dominantCategory: topCat,
+        badge: topCat,
+        desc: `Kuasai ${slice.length} kata dengan fokus kategori ${topCat}, Active Recall, dan audio refleks.`,
+        color: gradientPalette[colorIndex],
+        icon: iconPalette[iconIndex]
+      });
+    }
+    return result;
+  }, [rawWords, dailyTarget, currentLevel]);
+
+  // Words with dynamic day assignment according to dailyTarget
+  const words = useMemo(() => {
+    if (!rawWords) return [];
+    const target = Math.max(1, dailyTarget || 15);
+    return rawWords.map((w, idx) => ({
+      ...w,
+      day: Math.floor(idx / target) + 1
+    }));
+  }, [rawWords, dailyTarget]);
 
   const [dailyLog, setDailyLog] = useState(() => {
     try {
@@ -384,10 +451,9 @@ export function LearningProvider({ children }) {
   useEffect(() => {
     let isCancelled = false;
 
-    loadLevelVocabulary(currentLevel).then(({ words: loadedWords, daysConfig: loadedDays }) => {
+    loadLevelVocabulary(currentLevel).then(({ words: loadedWords }) => {
       if (!isCancelled) {
-        setWords(loadedWords);
-        setDaysConfig(loadedDays);
+        setRawWords(loadedWords);
       }
     });
 
@@ -715,15 +781,30 @@ export function LearningProvider({ children }) {
       total: dayWords.length,
       mastered,
       reviewing,
-      percent: Math.round((mastered / dayWords.length) * 100) || 0
+      percent: dayWords.length > 0 ? Math.round((mastered / dayWords.length) * 100) : 0
     };
   };
+
+  // Dynamic current active day: first day where mastery < 100%
+  const currentActiveDay = useMemo(() => {
+    if (!daysConfig || daysConfig.length === 0) return 1;
+    for (const d of daysConfig) {
+      const dayWords = words.filter(w => w.day === d.day);
+      if (dayWords.length === 0) continue;
+      const mastered = dayWords.filter(w => wordStatus[w.id] === 'mastered').length;
+      if (mastered < dayWords.length) {
+        return d.day;
+      }
+    }
+    return 1;
+  }, [daysConfig, words, wordStatus]);
 
   return (
     <LearningContext.Provider
       value={{
         words,
         daysConfig,
+        currentActiveDay,
         wordStatus,
         updateWordStatus,
         markFirst150Mastered,
