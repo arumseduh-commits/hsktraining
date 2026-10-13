@@ -89,7 +89,7 @@ export default function GrammarView() {
           }`}
         >
           <Sparkles size={15} />
-          <span>HSK 2 (Standar 3.0 • 50 Poin)</span>
+          <span>HSK 2 (Standar 3.0 • 72 Poin Lengkap)</span>
           {currentLevel === 2 && (
             <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/20 text-white font-mono">
               Aktif
@@ -114,13 +114,13 @@ export default function GrammarView() {
 
           <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
             {viewLevel === 2 
-              ? '50 Tata Bahasa Lengkap HSK 2 (Standar 3.0)' 
+              ? '72 Tata Bahasa Lengkap HSK 2 (Standar 3.0)' 
               : '48 Tata Bahasa Lengkap HSK 1'}
           </h2>
 
           <p className="text-xs sm:text-sm text-slate-300 max-w-xl leading-relaxed">
             {viewLevel === 2
-              ? 'Kuasai seluruh kaidah percakapan praktis HSK 2: perbandingan (比 / 一样), preposisi arah & jarak (离 / 往 / 对 / 从到), kata kerja modal (可以 / 应该 / 得), aspek (过 / 着 / 快要), pelengkap (完 / 好 / 懂 / 得), dan kalimat majemuk (因为所以 / 虽然但是 / 如果就).'
+              ? 'Kuasai seluruh 72 kaidah resmi HSK 2: Tiga partikel "De" (的, 得, 地), perbandingan (比 / 一样 / 不比), preposisi arah & jarak (离 / 往 / 对 / 从到), kata kerja modal (可以 / 应该 / 得 / 觉得), aspek (过 / 着 / 快要...了 / 正在...呢), pelengkap (完 / 好 / 懂 / 到 / 起来), kalimat majemuk (因为所以 / 虽然但是 / 如果就 / 又又 / 一就 / 或者 vs 还是), serta pola khusus (是...的, 让/叫/请, 别/不要, perkiraan 多/几).'
               : 'Kuasai seluruh 48 rumus struktur, partikel (吗, 呢, 的, 了), kata tanya, negasi (不 vs 没), satuan, kata kerja modal, dan pola kalimat untuk membangun fondasi kokoh berbicara Mandarin.'}
           </p>
         </div>
