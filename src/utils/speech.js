@@ -212,7 +212,7 @@ export function stopChineseSpeech() {
 /**
  * Preload Chinese audio in background memory so when clicked it plays instantly with 0ms delay
  */
-export function preloadChineseAudio(rawText, speed = 0.90) {
+export function preloadChineseAudio(rawText, speed = 1.05) {
   if (typeof window === 'undefined' || !rawText) return;
 
   // 1. Check local static audio first
@@ -242,7 +242,7 @@ export function preloadChineseAudio(rawText, speed = 0.90) {
       const audio = new Audio();
       audio.preload = 'auto';
       audio.src = audioUrl;
-      audio.playbackRate = Math.max(0.75, Math.min(1.25, speed || 0.9));
+      audio.playbackRate = Math.max(0.75, Math.min(1.35, speed || 1.05));
       audio.load();
       audioMemoryCache.set(textKey, audio);
     } catch {}
@@ -266,7 +266,7 @@ function playTurnWithGoogleAudio(text, speed, onDone) {
     }
 
     currentAudioElement = audio;
-    audio.playbackRate = Math.max(0.75, Math.min(1.25, speed || 0.9));
+    audio.playbackRate = Math.max(0.75, Math.min(1.35, speed || 1.05));
     audio.currentTime = 0;
 
     let isDone = false;
@@ -374,7 +374,7 @@ function playTurn(turn, speed, onDone) {
  * @param {function} onEndCallback - Callback when full speech completes
  * @param {function} onSpeakerChange - Callback with current turn info ({ speaker, roleLabel, text })
  */
-export function speakChinese(rawText, speed = 0.90, onEndCallback = null, onSpeakerChange = null) {
+export function speakChinese(rawText, speed = 1.05, onEndCallback = null, onSpeakerChange = null) {
   if (!rawText) {
     if (onEndCallback) onEndCallback();
     return;
@@ -394,7 +394,7 @@ export function speakChinese(rawText, speed = 0.90, onEndCallback = null, onSpea
     }
 
     currentAudioElement = audio;
-    audio.playbackRate = Math.max(0.75, Math.min(1.25, speed || 0.90));
+    audio.playbackRate = Math.max(0.75, Math.min(1.35, speed || 1.05));
     audio.currentTime = 0;
 
     let isDone = false;

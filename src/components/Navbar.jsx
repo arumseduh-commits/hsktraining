@@ -117,12 +117,12 @@ export default function Navbar({ onOpenIosModal, onOpenDialogueModal, onOpenLeve
           <div className="flex items-center gap-2">
             {/* Audio Speed Pill */}
             <button
-              onClick={() => setAudioSpeed(s => s === 0.85 ? 1.0 : 0.85)}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-semibold bg-slate-100/80 hover:bg-slate-200/70 text-slate-600 transition-colors"
-              title="Atur Kecepatan Suara Mandarin"
+              onClick={() => setAudioSpeed(s => s >= 1.15 ? 0.95 : (s >= 1.0 ? 1.15 : 1.05))}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-semibold bg-slate-100/80 hover:bg-slate-200/70 text-slate-600 transition-colors cursor-pointer active:scale-95"
+              title="Atur Kecepatan Tempo Suara Mandarin"
             >
               <Volume2 size={13} className="text-slate-400" />
-              <span className="font-mono text-[11px]">{audioSpeed === 0.85 ? '0.85x' : '1.0x'}</span>
+              <span className="font-mono text-[11px]">{audioSpeed}x</span>
             </button>
 
             {/* iOS Button */}

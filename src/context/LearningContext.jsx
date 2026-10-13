@@ -81,7 +81,24 @@ export function LearningProvider({ children }) {
   }, [favorites]);
 
   const [activeDay, setActiveDay] = useState(1);
-  const [audioSpeed, setAudioSpeed] = useState(0.85);
+  const [audioSpeed, setAudioSpeedState] = useState(() => {
+    try {
+      const saved = localStorage.getItem('hsk_audio_speed');
+      return saved ? parseFloat(saved) : 1.05;
+    } catch {
+      return 1.05;
+    }
+  });
+
+  const setAudioSpeed = useCallback((val) => {
+    setAudioSpeedState(prev => {
+      const next = typeof val === 'function' ? val(prev) : val;
+      try {
+        localStorage.setItem('hsk_audio_speed', next.toString());
+      } catch {}
+      return next;
+    });
+  }, []);
 
   const [examScores, setExamScores] = useState(() => {
     try {

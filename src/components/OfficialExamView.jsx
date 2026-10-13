@@ -33,6 +33,7 @@ export default function OfficialExamView() {
   const { 
     words, 
     audioSpeed, 
+    setAudioSpeed,
     officialHistory, 
     recordOfficialExamResult, 
     candidateName, 
@@ -576,6 +577,29 @@ export default function OfficialExamView() {
                       {isPlayingAudio ? 'Sedang memutar percakapan alami...' : 'Klik tombol di atas untuk menyimak audio standar penutur asli'}
                     </p>
                   )}
+
+                  {/* Tempo Speed Pills */}
+                  <div className="flex items-center justify-center gap-1.5 pt-1">
+                    <span className="text-[10px] font-semibold text-slate-400 mr-1">Tempo:</span>
+                    {[
+                      { val: 0.95, label: '0.95x Santai' },
+                      { val: 1.05, label: '1.05x Normal ⚡' },
+                      { val: 1.15, label: '1.15x Tangkas' }
+                    ].map(spd => (
+                      <button
+                        key={spd.val}
+                        type="button"
+                        onClick={() => setAudioSpeed(spd.val)}
+                        className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold transition-all cursor-pointer ${
+                          Math.abs(audioSpeed - spd.val) < 0.04
+                            ? 'bg-rose-500 text-white shadow-2xs scale-105'
+                            : 'bg-white/80 text-slate-600 hover:bg-white border border-slate-200/60'
+                        }`}
+                      >
+                        {spd.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}
