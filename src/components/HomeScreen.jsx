@@ -300,10 +300,10 @@ export default function HomeScreen({
                 <span>Hasil Ujian Resmi Terakhir</span>
               </div>
               <h4 className="text-xs sm:text-sm font-bold text-white">
-                Skor: {latestOfficialExam.score}/100 • {latestOfficialExam.passed ? 'Lulus Memuaskan' : 'Perlu Ulangi'}
+                Skor: {latestOfficialExam.totalScore || latestOfficialExam.score} / 200 • {latestOfficialExam.passed ? 'Lulus Memuaskan' : 'Perlu Ulangi'}
               </h4>
               <p className="text-[11px] text-emerald-200/70">
-                Sertifikat No: {latestOfficialExam.certificateNo || 'Tersedia'} • Klik untuk lihat sertifikat
+                Sertifikat No: {latestOfficialExam.certNumber || latestOfficialExam.certificateNo || 'Tersedia'} • Klik untuk lihat sertifikat
               </p>
             </div>
           </div>

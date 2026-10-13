@@ -17,10 +17,13 @@ import {
   Check,
   Lock,
   ArrowRight,
-  ShieldCheck
+  ShieldCheck,
+  Image as ImageIcon,
+  Play
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { generateOfficialExam } from '../data/officialExamBank';
+import { HSK1_OFFICIAL_H10901 } from '../data/hsk1OfficialH10901';
 import { speakChinese } from '../utils/speech';
 import { useLearning } from '../context/LearningContext';
 import OfficialCertificateModal from './OfficialCertificateModal';
@@ -44,7 +47,7 @@ export default function OfficialExamView() {
   const [examState, setExamState] = useState('menu'); // 'menu', 'testing', 'result'
   const [currentIndex, setCurrentIndex] = useState(0);
   const [userAnswers, setUserAnswers] = useState({});
-  const [timeLeft, setTimeLeft] = useState(1500); // 25 minutes = 1500 seconds
+  const [timeLeft, setTimeLeft] = useState(2100); // 35 minutes = 2100 seconds
   const [selectedCertResult, setSelectedCertResult] = useState(null);
   const [isEditingName, setIsEditingName] = useState(false);
   const [tempName, setTempName] = useState(candidateName);
@@ -64,17 +67,20 @@ export default function OfficialExamView() {
     });
   };
 
-  // Start new randomized official exam session
-  const startNewExam = () => {
+  // Start official exam session (H10901 Authentic Past Paper or Adaptive Bank)
+  const startNewExam = (mode = 'h10901') => {
     if (!isFinalAssessmentPassed) {
       navigate('/study/roadmap');
       return;
     }
-    const newExam = generateOfficialExam(words);
+    const newExam = (mode === 'h10901' && (currentLevel === 1 || !currentLevel)) 
+      ? HSK1_OFFICIAL_H10901 
+      : generateOfficialExam(words);
+
     setExamSession(newExam);
     setUserAnswers({});
     setCurrentIndex(0);
-    setTimeLeft(1500);
+    setTimeLeft(newExam.durationMinutes ? newExam.durationMinutes * 60 : 1500);
     setExamState('testing');
   };
 
@@ -120,23 +126,28 @@ export default function OfficialExamView() {
       if (userAnswers[q.id] === q.answer) readingCorrect++;
     });
 
-    const listeningScore = listeningCorrect * 10; // Max 100
-    const readingScore = readingCorrect * 10;     // Max 100
+    const isH10901 = examSession.examId === 'H10901';
+    const ptsPerQ = isH10901 ? 5 : 10;
+    const listeningScore = listeningCorrect * ptsPerQ; // Max 100
+    const readingScore = readingCorrect * ptsPerQ;     // Max 100
     const totalScore = listeningScore + readingScore; // Max 200
-    const isPassed = totalScore >= 120; // 60% of 200
+    const isPassed = totalScore >= (examSession.passScore || 120); // 60% of 200
 
     const certNumber = `H1${new Date().getFullYear().toString().slice(2)}${Math.floor(10000000 + Math.random() * 90000000)}`;
 
     const resultRecord = {
       id: Date.now(),
       examId: examSession.examId,
+      title: examSession.title || 'Simulasi Ujian Resmi HSK 1',
       level: currentLevel || 1,
       date: new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }),
       time: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
       candidateName: candidateName || 'Pembelajar HSK',
       certNumber,
+      certificateNo: certNumber,
       listeningScore,
       readingScore,
+      score: totalScore,
       totalScore,
       passed: isPassed,
       answeredCount: Object.keys(userAnswers).length,
@@ -225,8 +236,8 @@ export default function OfficialExamView() {
             {/* Quick Metrics */}
             <div className="relative z-10 grid grid-cols-3 gap-3 pt-6 mt-6 border-t border-white/10 text-center">
               <div>
-                <span className="text-[10px] text-slate-400 font-semibold block uppercase">Struktur Ujian</span>
-                <span className="text-sm sm:text-base font-bold text-white font-mono">10 Dengar + 10 Baca</span>
+                <span className="text-[10px] text-slate-400 font-semibold block uppercase">Format Ujian Resmi</span>
+                <span className="text-sm sm:text-base font-bold text-white font-mono">20 Dengar + 20 Baca</span>
               </div>
               <div>
                 <span className="text-[10px] text-slate-400 font-semibold block uppercase">Skor Maksimal</span>
@@ -273,20 +284,71 @@ export default function OfficialExamView() {
               </button>
             </div>
           ) : (
-            <div className="flex items-center justify-between gap-4 p-5 card-subtle rounded-3xl bg-white">
-              <div>
-                <h3 className="text-base font-bold text-slate-900">Siap Menguji Penguasaan HSK {currentLevel || 1} Anda?</h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Waktu pengerjaan 25 menit. Soal baru yang segar akan diacak otomatis.
-                </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Option 1: Official H10901 */}
+              <div className="p-5 sm:p-6 card-subtle rounded-3xl bg-gradient-to-br from-rose-50/60 via-white to-amber-50/40 border border-rose-200 shadow-xs flex flex-col justify-between space-y-4 hover:border-rose-300 hover:shadow-md transition-all">
+                <div className="space-y-2.5">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="px-2.5 py-0.5 rounded-full bg-rose-500 text-white text-[10px] font-black tracking-wider uppercase">
+                      Standar Resmi CTI
+                    </span>
+                    <span className="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-bold">
+                      🖼️ 25 Soal Bergambar
+                    </span>
+                    <span className="px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-800 text-[10px] font-bold">
+                      🎧 Audio 15 Menit
+                    </span>
+                  </div>
+                  <h3 className="text-base sm:text-lg font-black text-slate-900">
+                    Kertas Ujian Asli CTI (Set H10901)
+                  </h3>
+                  <p className="text-xs text-slate-600 leading-relaxed font-normal">
+                    Format simulasi 100% identik dengan naskah ujian resmi: 40 butir soal asli (Part I–IV Menyimak & Membaca), 25 foto & kisi gambar autentik, serta audio resmi berdurasi 15 menit.
+                  </p>
+                </div>
+
+                <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-slate-500 font-mono">40 Soal • 35 Menit</span>
+                  <button
+                    onClick={() => startNewExam('h10901')}
+                    className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
+                  >
+                    <span>Mulai Ujian Asli</span>
+                    <ChevronRight size={14} />
+                  </button>
+                </div>
               </div>
 
-              <button
-                onClick={startNewExam}
-                className="px-6 py-3 bg-rose-500 hover:bg-rose-600 active:scale-95 text-white font-bold text-xs sm:text-sm rounded-2xl shadow-sm transition-all shrink-0 cursor-pointer"
-              >
-                Mulai Ujian Baru
-              </button>
+              {/* Option 2: Adaptive Fast Quiz */}
+              <div className="p-5 sm:p-6 card-subtle rounded-3xl bg-white border border-slate-200/80 shadow-xs flex flex-col justify-between space-y-4 hover:border-slate-300 hover:shadow-md transition-all">
+                <div className="space-y-2.5">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[10px] font-black tracking-wider uppercase">
+                      Latihan Cepat
+                    </span>
+                    <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
+                      ⚡ Bank Soal Acak
+                    </span>
+                  </div>
+                  <h3 className="text-base sm:text-lg font-bold text-slate-900">
+                    Simulasi Cepat Adaptif
+                  </h3>
+                  <p className="text-xs text-slate-600 leading-relaxed font-normal">
+                    Kombinasi 20 butir soal dinamis dari bank soal kosakata aktif. Soal diacak secara instan, sangat pas untuk pemanasan cepat kapan pun Anda inginkan.
+                  </p>
+                </div>
+
+                <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-slate-500 font-mono">20 Soal • 25 Menit</span>
+                  <button
+                    onClick={() => startNewExam('adaptive')}
+                    className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 active:scale-95 text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
+                  >
+                    <span>Latihan Acak</span>
+                    <ChevronRight size={14} />
+                  </button>
+                </div>
+              </div>
             </div>
           )}
 
@@ -354,17 +416,24 @@ export default function OfficialExamView() {
       {examState === 'testing' && currentQ && (
         <div className="card-subtle rounded-3xl p-6 sm:p-8 space-y-6">
           {/* Top Progress & Timer */}
-          <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
             <div>
-              <span className="text-[10px] font-bold text-rose-500 uppercase tracking-wider block">
-                {currentQ.part}
-              </span>
-              <span className="text-xs font-bold text-slate-800">
-                Soal {currentIndex + 1} dari {examSession.totalQuestions}
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-50 text-rose-600 border border-rose-200 uppercase tracking-wider">
+                  {currentQ.part}
+                </span>
+                {examSession.examId === 'H10901' && (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                    Set H10901
+                  </span>
+                )}
+              </div>
+              <span className="text-xs font-bold text-slate-800 mt-1 block">
+                Soal {currentIndex + 1} dari {examSession.totalQuestions} • Terjawab: {Object.keys(userAnswers).length}/{examSession.totalQuestions}
               </span>
             </div>
 
-            <div className={`px-3 py-1 rounded-full font-mono text-xs font-bold flex items-center gap-1.5 ${
+            <div className={`px-3 py-1 rounded-full font-mono text-xs font-bold flex items-center gap-1.5 self-start sm:self-auto ${
               timeLeft < 300 ? 'bg-rose-100 text-rose-700 animate-pulse' : 'bg-slate-100 text-slate-700'
             }`}>
               <Clock size={13} className="text-slate-400" />
@@ -372,9 +441,32 @@ export default function OfficialExamView() {
             </div>
           </div>
 
+          {/* Master Exam Audio Track (Listening Section H10901) */}
+          {examSession.audioUrl && currentIndex < (examSession.listeningQuestions?.length || 20) && (
+            <div className="bg-gradient-to-r from-rose-50 via-white to-amber-50/50 border border-rose-200/90 rounded-2xl p-3.5 sm:p-4 space-y-2 shadow-2xs">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-rose-500 text-white flex items-center justify-center shadow-xs">
+                    <Volume2 size={16} />
+                  </div>
+                  <div>
+                    <h4 className="text-xs sm:text-sm font-bold text-slate-900">Audio Rekaman Resmi CTI HSK 1 (Set H10901)</h4>
+                    <p className="text-[11px] text-slate-500">Putar audio resmi ini untuk menyimak instruksi & dialog ujian nyata (15 Menit)</p>
+                  </div>
+                </div>
+              </div>
+              <audio 
+                src={examSession.audioUrl} 
+                controls 
+                className="w-full h-9 rounded-lg"
+                preload="metadata"
+              />
+            </div>
+          )}
+
           {/* Question Body */}
           <div className="space-y-4">
-            {/* Audio Section */}
+            {/* Audio Button per question (Voice / Speech fallback) */}
             {currentQ.audioText && (
               <div className="bg-rose-50/40 border border-rose-100 rounded-2xl p-4 text-center space-y-2">
                 <button
@@ -384,13 +476,47 @@ export default function OfficialExamView() {
                       ? 'bg-rose-600 ring-4 ring-rose-200 animate-pulse'
                       : 'bg-rose-500 hover:bg-rose-600 shadow-rose-500/20'
                   }`}
-                  title="Dengarkan Audio"
+                  title="Dengarkan Suara Soal Ini"
                 >
                   <Volume2 size={24} className={isPlayingAudio ? 'scale-110' : ''} />
                 </button>
                 <p className={`text-[11px] font-medium transition-colors ${isPlayingAudio ? 'text-rose-600 font-bold' : 'text-slate-400'}`}>
-                  {isPlayingAudio ? 'Sedang Memutar Audio...' : 'Putar rekaman audio Mandarin (zh-CN)'}
+                  {isPlayingAudio ? 'Sedang Memutar Audio...' : 'Putar suara Mandarin soal ini (zh-CN)'}
                 </p>
+                {currentQ.dialogSnippet && (
+                  <div className="text-[11px] text-slate-500 bg-white/90 py-1 px-3 rounded-lg inline-block border border-rose-100 font-medium">
+                    🗣️ Percakapan 2 Pembicara
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Single Image Illustration (True/False or ABC) */}
+            {currentQ.image && (
+              <div className="flex flex-col items-center justify-center p-3 sm:p-4 bg-slate-50/90 rounded-2xl border border-slate-100">
+                <img 
+                  src={currentQ.image} 
+                  alt="Ilustrasi Soal Resmi CTI" 
+                  className="max-h-56 sm:max-h-64 object-contain rounded-xl shadow-xs"
+                />
+                <span className="text-[10px] text-slate-400 mt-2 font-medium">Gambar Ilustrasi Ujian Resmi CTI</span>
+              </div>
+            )}
+
+            {/* Grid Image Reference (A–F options) */}
+            {currentQ.gridImage && (
+              <div className="space-y-2">
+                <div className="text-[11px] font-bold text-slate-600 uppercase flex items-center gap-1.5">
+                  <ImageIcon size={14} className="text-rose-500" />
+                  <span>Pilihan Gambar Referensi (A – F):</span>
+                </div>
+                <div className="flex justify-center p-3 sm:p-4 bg-slate-50/90 rounded-2xl border border-slate-100">
+                  <img 
+                    src={currentQ.gridImage} 
+                    alt="Kisi Gambar Referensi A-F" 
+                    className="max-h-64 sm:max-h-80 w-auto object-contain rounded-xl shadow-xs"
+                  />
+                </div>
               </div>
             )}
 
@@ -547,11 +673,12 @@ export default function OfficialExamView() {
                 {selectedCertResult.questionsSnapshot.map((q, idx) => {
                   const userAns = selectedCertResult.userAnswers[q.id];
                   const isCorrect = userAns === q.answer;
+                  const pts = q.points || (selectedCertResult.examId === 'H10901' ? 5 : 10);
 
                   return (
                     <div
                       key={q.id}
-                      className={`p-3 rounded-2xl border text-xs space-y-1 ${
+                      className={`p-3.5 rounded-2xl border text-xs space-y-2 ${
                         isCorrect ? 'bg-emerald-50/40 border-emerald-200' : 'bg-rose-50/40 border-rose-200'
                       }`}
                     >
@@ -560,9 +687,29 @@ export default function OfficialExamView() {
                           #{idx + 1} ({q.part})
                         </span>
                         <span className={`font-bold text-[10px] ${isCorrect ? 'text-emerald-700' : 'text-rose-700'}`}>
-                          {isCorrect ? 'Benar (+10 Poin)' : 'Salah (0 Poin)'}
+                          {isCorrect ? `Benar (+${pts} Poin)` : 'Salah (0 Poin)'}
                         </span>
                       </div>
+
+                      {q.image && (
+                        <div className="py-1">
+                          <img 
+                            src={q.image} 
+                            alt={`Soal #${idx + 1}`} 
+                            className="max-h-24 sm:max-h-28 object-contain rounded-lg border border-slate-200 bg-white" 
+                          />
+                        </div>
+                      )}
+
+                      {q.gridImage && (
+                        <div className="py-1">
+                          <img 
+                            src={q.gridImage} 
+                            alt={`Kisi Soal #${idx + 1}`} 
+                            className="max-h-28 sm:max-h-36 object-contain rounded-lg border border-slate-200 bg-white" 
+                          />
+                        </div>
+                      )}
 
                       {q.audioText && (
                         <p className="text-slate-600">Audio: <strong>{q.audioText}</strong></p>
