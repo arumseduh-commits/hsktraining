@@ -1,6 +1,8 @@
 // Humanized Chinese Speech Engine for HSK Turbo
-// Dual-Engine System: High-Definition Neural Audio + Ranked Browser Voice Fallback
-// Supports Multi-Speaker Dialogues (Female & Male conversational turns with natural breathing pauses)
+// Dual-Engine System: Authentic Pre-rendered Studio Audio + High-Definition Neural Stream + Ranked Browser Voice Fallback
+// Supports Multi-Speaker Dialogues with 0ms Latency and Studio Human Pronunciation
+
+import examAudioManifest from '../data/examAudioManifest.json';
 
 let cachedBestVoices = {
   any: null,
@@ -13,6 +15,9 @@ let activeDialogueTimer = null;
 let isSpeakingCancelled = false;
 let activeUtterance = null; // WebKit garbage-collection prevention
 
+// In-memory cache for instant 0ms audio playback
+const audioMemoryCache = new Map();
+
 export function cleanChineseText(text) {
   if (!text) return '';
   return text
@@ -21,6 +26,18 @@ export function cleanChineseText(text) {
     .replace(/^(男|女|问|问题|听力|老师|学生)[:：]\s*/gm, '')
     .replace(/\n+/g, '，')
     .trim();
+}
+
+/**
+ * Match a Mandarin sentence to an authentic pre-rendered studio MP3 file
+ */
+export function getLocalExamAudio(text) {
+  if (!text) return null;
+  const rawKey = text.trim();
+  if (examAudioManifest[rawKey]) return examAudioManifest[rawKey];
+  const cleaned = cleanChineseText(text);
+  if (examAudioManifest[cleaned]) return examAudioManifest[cleaned];
+  return null;
 }
 
 /**
@@ -87,7 +104,7 @@ export function parseDialogueTurns(rawText) {
 }
 
 /**
- * Strict Voice Ranking Algorithm
+ * Strict Voice Ranking Algorithm for Web Speech Fallback
  * Prioritizes Microsoft Online Natural, Google Neural, Apple Tingting/Sinji
  * Strictly de-prioritizes robotic Windows SAPI desktop voices (Huihui Desktop)
  */
@@ -192,36 +209,48 @@ export function stopChineseSpeech() {
   }
 }
 
-// In-memory cache for instant 0ms audio playback
-const audioMemoryCache = new Map();
-
 /**
  * Preload Chinese audio in background memory so when clicked it plays instantly with 0ms delay
  */
 export function preloadChineseAudio(rawText, speed = 0.90) {
   if (typeof window === 'undefined' || !rawText) return;
+
+  // 1. Check local static audio first
+  const localUrl = getLocalExamAudio(rawText);
+  if (localUrl) {
+    if (!audioMemoryCache.has(localUrl)) {
+      try {
+        const audio = new Audio();
+        audio.preload = 'auto';
+        audio.src = localUrl;
+        audio.load();
+        audioMemoryCache.set(localUrl, audio);
+      } catch {}
+    }
+    return;
+  }
+
+  // 2. Preload dynamic turns
   const turns = parseDialogueTurns(rawText);
   turns.forEach(turn => {
     const textKey = turn.text.trim();
     if (!textKey || audioMemoryCache.has(textKey)) return;
 
     try {
-      const encoded = encodeURIComponent(textKey);
-      const audioUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=zh-CN&client=tw-ob&q=${encoded}`;
+      const localTurnUrl = getLocalExamAudio(textKey);
+      const audioUrl = localTurnUrl || `https://translate.google.com/translate_tts?ie=UTF-8&tl=zh-CN&client=tw-ob&q=${encodeURIComponent(textKey)}`;
       const audio = new Audio();
       audio.preload = 'auto';
       audio.src = audioUrl;
       audio.playbackRate = Math.max(0.75, Math.min(1.25, speed || 0.9));
       audio.load();
       audioMemoryCache.set(textKey, audio);
-    } catch {
-      // Ignore background preload failures
-    }
+    } catch {}
   });
 }
 
 /**
- * Play a single turn using Google Studio Neural Audio with In-Memory Caching & 300ms Watchdog
+ * Play a single turn using Google Studio Neural Audio with In-Memory Caching & Watchdog
  */
 function playTurnWithGoogleAudio(text, speed, onDone) {
   try {
@@ -229,8 +258,8 @@ function playTurnWithGoogleAudio(text, speed, onDone) {
     let audio = audioMemoryCache.get(textKey);
 
     if (!audio) {
-      const encoded = encodeURIComponent(textKey);
-      const audioUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=zh-CN&client=tw-ob&q=${encoded}`;
+      const localAudio = getLocalExamAudio(textKey);
+      const audioUrl = localAudio || `https://translate.google.com/translate_tts?ie=UTF-8&tl=zh-CN&client=tw-ob&q=${encodeURIComponent(textKey)}`;
       audio = new Audio(audioUrl);
       audio.preload = 'auto';
       audioMemoryCache.set(textKey, audio);
@@ -251,12 +280,12 @@ function playTurnWithGoogleAudio(text, speed, onDone) {
     audio.onended = () => finish(true);
     audio.onerror = () => finish(false);
 
-    // Fast watchdog: if network stalls > 300ms, immediately cut over to instant local speech (0ms wait)
+    // Watchdog: fallback if stalled
     const watchdog = setTimeout(() => {
-      if (!isDone && audio.paused) {
+      if (!isDone && audio.paused && audio.currentTime === 0) {
         finish(false);
       }
-    }, 300);
+    }, 1500);
 
     const playPromise = audio.play();
     if (playPromise !== undefined) {
@@ -319,7 +348,7 @@ function playTurnWithWebSpeech(turn, speed, onDone) {
 }
 
 /**
- * Play single speech turn (Google Neural first -> Web Speech ranked natural voice fallback)
+ * Play single speech turn (Local/Google Neural first -> Web Speech ranked natural voice fallback)
  */
 function playTurn(turn, speed, onDone) {
   if (isSpeakingCancelled) return;
@@ -338,7 +367,7 @@ function playTurn(turn, speed, onDone) {
 
 /**
  * Main function: Humanized Mandarin Speech
- * Seamlessly handles single sentences and multi-speaker dialogues
+ * Seamlessly plays authentic studio MP3s or handles dynamic multi-speaker dialogues
  * 
  * @param {string} rawText - Mandarin text (e.g. single sentence or dialog "男：...\n女：...")
  * @param {number} speed - Playback speed (default 0.90)
@@ -354,39 +383,86 @@ export function speakChinese(rawText, speed = 0.90, onEndCallback = null, onSpea
   stopChineseSpeech();
   isSpeakingCancelled = false;
 
-  const turns = parseDialogueTurns(rawText);
-  if (turns.length === 0) {
-    if (onEndCallback) onEndCallback();
+  // 1. PRIORITY 1: Check if an authentic pre-rendered static studio MP3 exists for this text!
+  const localAudioUrl = getLocalExamAudio(rawText);
+  if (localAudioUrl) {
+    let audio = audioMemoryCache.get(localAudioUrl);
+    if (!audio) {
+      audio = new Audio(localAudioUrl);
+      audio.preload = 'auto';
+      audioMemoryCache.set(localAudioUrl, audio);
+    }
+
+    currentAudioElement = audio;
+    audio.playbackRate = Math.max(0.75, Math.min(1.25, speed || 0.90));
+    audio.currentTime = 0;
+
+    let isDone = false;
+    const finish = () => {
+      if (isDone) return;
+      isDone = true;
+      if (currentAudioElement === audio) currentAudioElement = null;
+      if (onSpeakerChange) onSpeakerChange(null);
+      if (onEndCallback) onEndCallback();
+    };
+
+    audio.onended = finish;
+    audio.onerror = () => {
+      currentAudioElement = null;
+      runDialogueTurns();
+    };
+
+    if (onSpeakerChange) {
+      onSpeakerChange({ roleLabel: 'Rekaman Suara Alami', text: cleanChineseText(rawText) });
+    }
+
+    const p = audio.play();
+    if (p !== undefined) {
+      p.catch(() => {
+        runDialogueTurns();
+      });
+    }
     return;
   }
 
-  let currentTurnIndex = 0;
+  // 2. PRIORITY 2: Multi-turn conversational dialogue flow
+  runDialogueTurns();
 
-  function runNextTurn() {
-    if (isSpeakingCancelled) return;
-
-    if (currentTurnIndex >= turns.length) {
-      if (onSpeakerChange) onSpeakerChange(null);
+  function runDialogueTurns() {
+    const turns = parseDialogueTurns(rawText);
+    if (turns.length === 0) {
       if (onEndCallback) onEndCallback();
       return;
     }
 
-    const currentTurn = turns[currentTurnIndex];
-    if (onSpeakerChange) onSpeakerChange(currentTurn);
+    let currentTurnIndex = 0;
 
-    playTurn(currentTurn, speed, () => {
+    function runNextTurn() {
       if (isSpeakingCancelled) return;
 
-      currentTurnIndex++;
-      if (currentTurnIndex < turns.length) {
-        // Natural human breath pause between conversational turns (600ms)
-        activeDialogueTimer = setTimeout(runNextTurn, 600);
-      } else {
+      if (currentTurnIndex >= turns.length) {
         if (onSpeakerChange) onSpeakerChange(null);
         if (onEndCallback) onEndCallback();
+        return;
       }
-    });
-  }
 
-  runNextTurn();
+      const currentTurn = turns[currentTurnIndex];
+      if (onSpeakerChange) onSpeakerChange(currentTurn);
+
+      playTurn(currentTurn, speed, () => {
+        if (isSpeakingCancelled) return;
+
+        currentTurnIndex++;
+        if (currentTurnIndex < turns.length) {
+          // Natural human breath pause between conversational turns (600ms)
+          activeDialogueTimer = setTimeout(runNextTurn, 600);
+        } else {
+          if (onSpeakerChange) onSpeakerChange(null);
+          if (onEndCallback) onEndCallback();
+        }
+      });
+    }
+
+    runNextTurn();
+  }
 }
