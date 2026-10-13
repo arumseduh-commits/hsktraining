@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   X, 
   Volume2, 
@@ -8,11 +8,36 @@ import {
   ArrowRight, 
   Award,
   Check,
-  Zap
+  Zap,
+  Ear,
+  HelpCircle
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { speakChinese } from '../utils/speech';
 import { useLearning } from '../context/LearningContext';
+
+// Helper to determine pinyin tone number (1, 2, 3, or 4)
+function getPinyinToneNumber(pinyin) {
+  if (!pinyin) return 1;
+  const lower = pinyin.toLowerCase();
+  if (/[āēīōūǖ]/.test(lower)) return 1;
+  if (/[áéíóúǘ]/.test(lower)) return 2;
+  if (/[ǎěǐǒǔǚ]/.test(lower)) return 3;
+  if (/[àèìòùǜ]/.test(lower)) return 4;
+  return 1;
+}
+
+// Cute Panda Mascot Component matching user screenshots
+function PandaMascot() {
+  return (
+    <div className="relative w-12 h-12 flex items-center justify-center shrink-0">
+      <div className="w-11 h-11 rounded-2xl bg-amber-50/90 border-2 border-emerald-900/20 flex items-center justify-center shadow-xs">
+        <span className="text-2xl select-none" role="img" aria-label="panda">🐼</span>
+      </div>
+      <div className="absolute -top-1 -right-0.5 text-xs select-none">🌸</div>
+    </div>
+  );
+}
 
 export default function DayHanziQuizModal({ 
   isOpen, 
@@ -25,324 +50,643 @@ export default function DayHanziQuizModal({
 
   const [questions, setQuestions] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [selectedOption, setSelectedOption] = useState(null);
-  const [isAnswered, setIsAnswered] = useState(false);
   const [score, setScore] = useState(0);
   const [isFinished, setIsFinished] = useState(false);
   const [userAnswers, setUserAnswers] = useState([]);
 
-  // Generate 10 randomized Hanzi questions from current day words
+  // States for choice-based questions (listening_phrase, hanzi_meaning, tone_quiz)
+  const [selectedOption, setSelectedOption] = useState(null);
+  const [isAnswered, setIsAnswered] = useState(false);
+  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  const [showListeningHint, setShowListeningHint] = useState(false);
+
+  // States for matching pairs question
+  const [matchedIds, setMatchedIds] = useState(new Set());
+  const [selectedLeft, setSelectedLeft] = useState(null);
+  const [selectedRight, setSelectedRight] = useState(null);
+  const [mismatchIds, setMismatchIds] = useState([]);
+  const mismatchTimeoutRef = useRef(null);
+
+  // Question generator combining all 4 interactive question formats
   useEffect(() => {
-    if (!isOpen || !dayWords || dayWords.length === 0) return;
+    if (!isOpen) return;
 
-    const pool = [...dayWords].sort(() => Math.random() - 0.5);
-    const count = Math.min(10, pool.length);
-    const selectedBatch = pool.slice(0, count);
+    const pool = (dayWords && dayWords.length >= 3) ? [...dayWords] : [...words];
+    const shuffledPool = [...pool].sort(() => Math.random() - 0.5);
 
-    const generated = selectedBatch.map((targetWord, idx) => {
-      // Determine question type (0: Hanzi -> Pinyin/Arti, 1: Arti/Pinyin -> Hanzi, 2: Audio -> Hanzi)
-      const qType = idx % 3;
+    const generated = [];
 
-      // Pick 3 distractors from all words (prefer same day or general pool)
-      const distractorPool = words.filter(w => w.id !== targetWord.id);
-      const shuffledDistractors = [...distractorPool].sort(() => Math.random() - 0.5).slice(0, 3);
-      const rawOptions = [targetWord, ...shuffledDistractors].sort(() => Math.random() - 0.5);
+    // Helper to get 3 unique distractors
+    const getDistractors = (targetWord, count = 3) => {
+      const candidates = words.filter(w => w.id !== targetWord.id && w.arti !== targetWord.arti);
+      return candidates.sort(() => Math.random() - 0.5).slice(0, count);
+    };
 
-      return {
-        id: idx + 1,
-        type: qType,
-        targetWord,
-        options: rawOptions,
-        correctId: targetWord.id
-      };
+    let wordPointer = 0;
+    const nextWord = () => {
+      const w = shuffledPool[wordPointer % shuffledPool.length];
+      wordPointer++;
+      return w;
+    };
+
+    // 1. QUESTION 1: Pasangkan kata dengan maknanya (Matching 3 pairs)
+    const matchGroup1 = [nextWord(), nextWord(), nextWord()];
+    // Deduplicate in case pool was small
+    const uniqueMatch1 = Array.from(new Map(matchGroup1.map(w => [w.id, w])).values());
+    while (uniqueMatch1.length < 3 && words.length >= 3) {
+      const extra = words[Math.floor(Math.random() * words.length)];
+      if (!uniqueMatch1.some(w => w.id === extra.id)) {
+        uniqueMatch1.push(extra);
+      }
+    }
+    const left1 = uniqueMatch1.map(w => ({ id: w.id, hanzi: w.hanzi, pinyin: w.pinyin, word: w }));
+    const right1 = [...uniqueMatch1].sort(() => Math.random() - 0.5).map(w => ({ id: w.id, arti: w.arti, word: w }));
+    generated.push({
+      id: 1,
+      type: 'match_pairs',
+      title: 'Pasangkan kata dengan maknanya',
+      subtitle: 'Ketuk kata Mandarin dan artinya yang sesuai',
+      leftCards: left1,
+      rightCards: right1,
+      totalPairs: uniqueMatch1.length
+    });
+
+    // 2. QUESTION 2: Tebak arti Hanzi (Hanzi to Indonesian meaning - STRICTLY NO AUDIO!)
+    const target2 = nextWord();
+    const distractors2 = getDistractors(target2, 3);
+    const options2 = [target2, ...distractors2].sort(() => Math.random() - 0.5);
+    generated.push({
+      id: 2,
+      type: 'hanzi_meaning',
+      title: 'Apa arti karakter Hanzi ini?',
+      targetWord: target2,
+      options: options2,
+      correctId: target2.id,
+      correctArti: target2.arti
+    });
+
+    // 3. QUESTION 3: 他说什么？ (Listening Phrase / Sentence Audio Comprehension)
+    const target3 = nextWord();
+    const hasExample = target3.contoh && target3.contoh.length > 0;
+    const audioText3 = hasExample ? target3.contoh : target3.hanzi;
+    const distractorWords3 = getDistractors(target3, 2);
+    
+    const options3 = [
+      {
+        id: target3.id,
+        hanzi: hasExample ? target3.contoh : target3.hanzi,
+        pinyin: hasExample ? target3.contohPinyin : target3.pinyin,
+        isCorrect: true
+      },
+      ...distractorWords3.map(dw => ({
+        id: dw.id,
+        hanzi: (hasExample && dw.contoh) ? dw.contoh : dw.hanzi,
+        pinyin: (hasExample && dw.contohPinyin) ? dw.contohPinyin : dw.pinyin,
+        isCorrect: false
+      }))
+    ].sort(() => Math.random() - 0.5);
+
+    generated.push({
+      id: 3,
+      type: 'listening_phrase',
+      title: '他说什么？',
+      subtitle: 'Tā shuō shénme?',
+      audioText: audioText3,
+      targetWord: target3,
+      options: options3,
+      correctId: target3.id
+    });
+
+    // 4. QUESTION 4: Tebak Nada (Tone Identification)
+    const target4 = nextWord();
+    const toneNum4 = target4.tone || getPinyinToneNumber(target4.pinyin);
+    const toneOptions4 = [
+      { id: 1, label: 'nada 1', desc: 'Datar tinggi (—)' },
+      { id: 2, label: 'nada 2', desc: 'Naik (/)' },
+      { id: 3, label: 'nada 3', desc: 'Turun-naik (∨)' },
+      { id: 4, label: 'nada 4', desc: 'Turun cepat (\\)' }
+    ];
+    generated.push({
+      id: 4,
+      type: 'tone_quiz',
+      title: 'Tebak nada (tone) karakter ini',
+      subtitle: 'Pilih nada suara yang tepat untuk pelafalan kata ini',
+      targetWord: target4,
+      options: toneOptions4,
+      correctTone: toneNum4
+    });
+
+    // 5. QUESTION 5: Tebak arti Hanzi (Visual Recognition - NO AUDIO!)
+    const target5 = nextWord();
+    const distractors5 = getDistractors(target5, 3);
+    const options5 = [target5, ...distractors5].sort(() => Math.random() - 0.5);
+    generated.push({
+      id: 5,
+      type: 'hanzi_meaning',
+      title: 'Apa arti karakter Hanzi ini?',
+      targetWord: target5,
+      options: options5,
+      correctId: target5.id,
+      correctArti: target5.arti
+    });
+
+    // 6. QUESTION 6: Pasangkan kata dengan maknanya (Babak 2 Penguatan)
+    const matchGroup2 = [nextWord(), nextWord(), nextWord()];
+    const uniqueMatch2 = Array.from(new Map(matchGroup2.map(w => [w.id, w])).values());
+    while (uniqueMatch2.length < 3 && words.length >= 3) {
+      const extra = words[Math.floor(Math.random() * words.length)];
+      if (!uniqueMatch2.some(w => w.id === extra.id)) {
+        uniqueMatch2.push(extra);
+      }
+    }
+    const left2 = uniqueMatch2.map(w => ({ id: w.id, hanzi: w.hanzi, pinyin: w.pinyin, word: w }));
+    const right2 = [...uniqueMatch2].sort(() => Math.random() - 0.5).map(w => ({ id: w.id, arti: w.arti, word: w }));
+    generated.push({
+      id: 6,
+      type: 'match_pairs',
+      title: 'Pasangkan kata dengan maknanya',
+      subtitle: 'Ketuk kata Mandarin dan artinya yang sesuai',
+      leftCards: left2,
+      rightCards: right2,
+      totalPairs: uniqueMatch2.length
     });
 
     setQuestions(generated);
     setCurrentIndex(0);
-    setSelectedOption(null);
-    setIsAnswered(false);
     setScore(0);
     setIsFinished(false);
     setUserAnswers([]);
+    resetCurrentQuestionState();
   }, [isOpen, dayWords, words]);
 
-  // Auto-play audio when audio-type question appears
-  useEffect(() => {
-    if (questions.length > 0 && questions[currentIndex]?.type === 2 && !isFinished) {
-      const q = questions[currentIndex];
-      speakChinese(q.targetWord.hanzi, audioSpeed);
-    }
-  }, [currentIndex, questions, isFinished, audioSpeed]);
+  // Reset local state when transitioning between questions
+  const resetCurrentQuestionState = () => {
+    setSelectedOption(null);
+    setIsAnswered(false);
+    setIsPlayingAudio(false);
+    setShowListeningHint(false);
+    setMatchedIds(new Set());
+    setSelectedLeft(null);
+    setSelectedRight(null);
+    setMismatchIds([]);
+    if (mismatchTimeoutRef.current) clearTimeout(mismatchTimeoutRef.current);
+  };
 
   if (!isOpen) return null;
 
   const currentQ = questions[currentIndex];
 
-  const handleSelect = (option) => {
+  // Play audio for listening questions (ONLY for listening_phrase, NEVER for hanzi_meaning!)
+  const handlePlayAudio = (textToPlay) => {
+    if (!textToPlay) return;
+    setIsPlayingAudio(true);
+    speakChinese(textToPlay, audioSpeed, () => {
+      setIsPlayingAudio(false);
+    });
+  };
+
+  // Logic for Matching Pairs Question
+  const handleSelectLeft = (id) => {
+    if (matchedIds.has(id)) return;
+    setSelectedLeft(id);
+    if (selectedRight !== null) {
+      checkPair(id, selectedRight);
+    }
+  };
+
+  const handleSelectRight = (id) => {
+    if (matchedIds.has(id)) return;
+    setSelectedRight(id);
+    if (selectedLeft !== null) {
+      checkPair(selectedLeft, id);
+    }
+  };
+
+  const checkPair = (leftId, rightId) => {
+    if (leftId === rightId) {
+      // Success match!
+      const newMatched = new Set(matchedIds);
+      newMatched.add(leftId);
+      setMatchedIds(newMatched);
+      setSelectedLeft(null);
+      setSelectedRight(null);
+      updateWordStatus(leftId, 'mastered');
+
+      // If all matched, question complete!
+      if (newMatched.size === currentQ.totalPairs) {
+        setIsAnswered(true);
+        setScore(s => s + 1);
+        setUserAnswers(prev => [
+          ...prev,
+          {
+            type: 'match_pairs',
+            isCorrect: true,
+            summary: `Mencocokkan ${currentQ.totalPairs} pasangan kata dengan sukses.`
+          }
+        ]);
+      }
+    } else {
+      // Mismatch
+      setMismatchIds([leftId, rightId]);
+      if (mismatchTimeoutRef.current) clearTimeout(mismatchTimeoutRef.current);
+      mismatchTimeoutRef.current = setTimeout(() => {
+        setSelectedLeft(null);
+        setSelectedRight(null);
+        setMismatchIds([]);
+      }, 600);
+    }
+  };
+
+  // Logic for multiple-choice questions (listening_phrase, hanzi_meaning, tone_quiz)
+  const handleSelectChoice = (option) => {
     if (isAnswered) return;
-    setSelectedOption(option.id);
+    setSelectedOption(option);
     setIsAnswered(true);
 
-    const isCorrect = option.id === currentQ.correctId;
+    let isCorrect = false;
+    let targetWord = currentQ.targetWord;
+
+    if (currentQ.type === 'hanzi_meaning') {
+      isCorrect = option.id === currentQ.correctId;
+    } else if (currentQ.type === 'listening_phrase') {
+      isCorrect = option.id === currentQ.correctId;
+    } else if (currentQ.type === 'tone_quiz') {
+      isCorrect = option.id === currentQ.correctTone;
+    }
+
     if (isCorrect) {
       setScore(s => s + 1);
-      updateWordStatus(currentQ.targetWord.id, 'mastered');
-      speakChinese(currentQ.targetWord.hanzi, audioSpeed);
+      if (targetWord) updateWordStatus(targetWord.id, 'mastered');
     } else {
-      updateWordStatus(currentQ.targetWord.id, 'reviewing');
+      if (targetWord) updateWordStatus(targetWord.id, 'reviewing');
     }
 
     setUserAnswers(prev => [
       ...prev,
       {
         question: currentQ,
-        selectedId: option.id,
+        selectedOption: option,
         isCorrect
       }
     ]);
   };
 
+  // Move to next question or finalize
   const handleNext = () => {
     if (currentIndex < questions.length - 1) {
       setCurrentIndex(c => c + 1);
-      setSelectedOption(null);
-      setIsAnswered(false);
+      resetCurrentQuestionState();
     } else {
       setIsFinished(true);
-      const finalScore = score + (selectedOption === currentQ.correctId ? 0 : 0);
-      const percent = Math.round((finalScore / questions.length) * 100);
+      const percent = Math.round((score / questions.length) * 100);
       if (percent >= 70) {
         confetti({
-          particleCount: 60,
-          spread: 60,
+          particleCount: 70,
+          spread: 70,
           origin: { y: 0.6 }
         });
       }
       if (onCompleteQuiz) {
-        onCompleteQuiz(finalScore, questions.length);
+        onCompleteQuiz(score, questions.length);
       }
     }
-  };
-
-  const restartQuiz = () => {
-    const pool = [...dayWords].sort(() => Math.random() - 0.5);
-    const count = Math.min(10, pool.length);
-    const selectedBatch = pool.slice(0, count);
-
-    const generated = selectedBatch.map((targetWord, idx) => {
-      const qType = idx % 3;
-      const distractorPool = words.filter(w => w.id !== targetWord.id);
-      const shuffledDistractors = [...distractorPool].sort(() => Math.random() - 0.5).slice(0, 3);
-      const rawOptions = [targetWord, ...shuffledDistractors].sort(() => Math.random() - 0.5);
-
-      return {
-        id: idx + 1,
-        type: qType,
-        targetWord,
-        options: rawOptions,
-        correctId: targetWord.id
-      };
-    });
-
-    setQuestions(generated);
-    setCurrentIndex(0);
-    setSelectedOption(null);
-    setIsAnswered(false);
-    setScore(0);
-    setIsFinished(false);
-    setUserAnswers([]);
   };
 
   const percentScore = questions.length > 0 ? Math.round((score / questions.length) * 100) : 0;
 
   return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md animate-fade-in">
+    <div className="fixed inset-0 z-[120] flex items-center justify-center p-3 sm:p-4 bg-slate-950/75 backdrop-blur-md animate-fade-in">
       <div 
-        className="w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]"
+        className="w-full max-w-lg bg-[#fbf9f4] rounded-3xl shadow-2xl border border-[#2d4f43]/20 overflow-hidden flex flex-col max-h-[92vh]"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Top Header */}
-        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/80">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-rose-500 text-white flex items-center justify-center font-black text-xs shadow-xs">
-              汉
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-slate-900">
-                Uji Pengetahuan Hanzi {day !== 'all' ? `Hari ${day}` : 'Sesi Ini'}
-              </h3>
-              <p className="text-[11px] text-slate-500">
-                {!isFinished ? `Soal ${currentIndex + 1} dari ${questions.length}` : 'Hasil Uji Hanzi'}
-              </p>
-            </div>
+        {/* Top Header & Progress */}
+        <div className="pt-4 px-5 pb-2 bg-[#fbf9f4]">
+          <div className="flex items-center justify-between mb-2">
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-colors cursor-pointer"
+              title="Tutup Tes"
+            >
+              <X size={20} />
+            </button>
+
+            <span className="text-[11px] font-black uppercase tracking-wider text-[#2d5747]">
+              Uji Pengetahuan {day !== 'all' ? `Hari ${day}` : 'Harian'}
+            </span>
+
+            <div className="w-8" />
           </div>
 
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-colors cursor-pointer"
-          >
-            <X size={18} />
-          </button>
+          {/* Continuous Green Progress Bar */}
+          {!isFinished && questions.length > 0 && (
+            <div className="h-2 w-full bg-[#e8e2d5] rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-[#3d7055] rounded-full transition-all duration-400"
+                style={{ width: `${((currentIndex + 1) / questions.length) * 100}%` }}
+              />
+            </div>
+          )}
         </div>
 
-        {/* Progress bar */}
-        {!isFinished && questions.length > 0 && (
-          <div className="h-1.5 w-full bg-slate-100 overflow-hidden">
-            <div 
-              className="h-full bg-gradient-to-r from-rose-500 to-amber-500 transition-all duration-300"
-              style={{ width: `${((currentIndex + 1) / questions.length) * 100}%` }}
-            />
-          </div>
-        )}
-
-        {/* Main Content Area */}
-        <div className="p-6 overflow-y-auto space-y-5 flex-1">
+        {/* Main Content Body */}
+        <div className="px-5 py-4 overflow-y-auto space-y-4 flex-1">
           {!isFinished && currentQ ? (
-            <div className="space-y-5 animate-fade-in">
-              {/* Question Card */}
-              <div className="text-center py-5 px-4 rounded-3xl bg-gradient-to-b from-slate-50 to-white border border-slate-200/80 shadow-2xs relative">
-                {currentQ.type === 0 && (
-                  <>
-                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-2">
-                      PILIH ARTI & PINYIN YANG TEPAT
-                    </span>
-                    <div className="text-6xl font-black text-slate-900 font-hanzi my-2">
+            <div className="space-y-4 animate-fade-in">
+              {/* Ringkasan Singkat Segmented Dots */}
+              <div className="flex items-center justify-between text-xs font-bold text-slate-500">
+                <span className="text-[#2d4f43]">Ringkasan singkat</span>
+                <div className="flex items-center gap-1.5">
+                  {questions.map((_, i) => (
+                    <div 
+                      key={i}
+                      className={`h-1.5 rounded-full transition-all duration-300 ${
+                        i < currentIndex 
+                          ? 'w-6 bg-[#2d5747]' 
+                          : i === currentIndex 
+                          ? 'w-8 bg-[#2d5747]' 
+                          : 'w-6 bg-[#e0dacf]'
+                      }`}
+                    />
+                  ))}
+                  <span className="ml-1 text-[11px] font-mono text-slate-400 font-bold">
+                    {currentIndex + 1}/{questions.length}
+                  </span>
+                </div>
+              </div>
+
+              {/* Title & Cute Panda Header */}
+              <div className="flex items-center justify-between gap-3 pt-1">
+                <div>
+                  <h3 className="text-xl sm:text-2xl font-black text-[#1e3d30] leading-tight">
+                    {currentQ.title}
+                  </h3>
+                  {currentQ.subtitle && (
+                    <p className="text-xs font-mono text-[#3d7055] font-semibold mt-0.5">
+                      {currentQ.subtitle}
+                    </p>
+                  )}
+                </div>
+                <PandaMascot />
+              </div>
+
+              {/* ---------------- TYPE 1: PASANGKAN KATA DENGAN MAKNANYA ---------------- */}
+              {currentQ.type === 'match_pairs' && (
+                <div className="grid grid-cols-2 gap-3 pt-2">
+                  {/* Left Column: Hanzi & Pinyin Cards */}
+                  <div className="space-y-2.5">
+                    {currentQ.leftCards.map((item) => {
+                      const isMatched = matchedIds.has(item.id);
+                      const isSelected = selectedLeft === item.id;
+                      const isMismatch = mismatchIds.includes(item.id);
+
+                      return (
+                        <button
+                          key={item.id}
+                          onClick={() => handleSelectLeft(item.id)}
+                          disabled={isMatched}
+                          className={`w-full p-4 rounded-2xl border-2 transition-all flex flex-col items-center justify-center min-h-[95px] text-center cursor-pointer ${
+                            isMatched
+                              ? 'border-emerald-600 bg-emerald-50/70 text-emerald-900 opacity-60'
+                              : isMismatch
+                              ? 'border-rose-500 bg-rose-50 animate-shake text-rose-900'
+                              : isSelected
+                              ? 'border-[#2d5747] bg-[#2d5747] text-white shadow-md'
+                              : 'border-[#2d4f43]/20 bg-white text-slate-800 hover:border-[#2d4f43]/50 shadow-[0_3px_0_0_#2d4f43]/10'
+                          }`}
+                        >
+                          <span className="text-2xl sm:text-3xl font-black font-hanzi">
+                            {item.hanzi}
+                          </span>
+                          <span className={`text-xs font-mono font-medium mt-1 ${
+                            isSelected ? 'text-emerald-100' : 'text-[#3d7055]'
+                          }`}>
+                            {item.pinyin}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Right Column: Meaning in Indonesian Cards */}
+                  <div className="space-y-2.5">
+                    {currentQ.rightCards.map((item) => {
+                      const isMatched = matchedIds.has(item.id);
+                      const isSelected = selectedRight === item.id;
+                      const isMismatch = mismatchIds.includes(item.id);
+
+                      return (
+                        <button
+                          key={item.id}
+                          onClick={() => handleSelectRight(item.id)}
+                          disabled={isMatched}
+                          className={`w-full p-4 rounded-2xl border-2 transition-all flex items-center justify-center min-h-[95px] text-center font-bold text-sm sm:text-base cursor-pointer ${
+                            isMatched
+                              ? 'border-emerald-600 bg-emerald-50/70 text-emerald-900 opacity-60'
+                              : isMismatch
+                              ? 'border-rose-500 bg-rose-50 animate-shake text-rose-900'
+                              : isSelected
+                              ? 'border-[#2d5747] bg-[#2d5747] text-white shadow-md'
+                              : 'border-[#2d4f43]/20 bg-white text-slate-800 hover:border-[#2d4f43]/50 shadow-[0_3px_0_0_#2d4f43]/10'
+                          }`}
+                        >
+                          <span>{item.arti}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* ---------------- TYPE 2: TEBAK ARTI HANZI (NO AUDIO ALLOWED!) ---------------- */}
+              {currentQ.type === 'hanzi_meaning' && (
+                <div className="space-y-4 pt-1">
+                  {/* Center Hanzi Card (Strictly without voice/audio button) */}
+                  <div className="p-6 rounded-2xl border-2 border-[#2d4f43]/30 bg-white text-center shadow-[0_3px_0_0_#2d4f43]/15 max-w-xs mx-auto">
+                    <span className="text-5xl sm:text-6xl font-black font-hanzi text-slate-900 block tracking-wider">
                       {currentQ.targetWord.hanzi}
-                    </div>
-                    <button
-                      onClick={() => speakChinese(currentQ.targetWord.hanzi, audioSpeed)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-50 text-rose-600 text-xs font-semibold hover:bg-rose-100 transition-colors cursor-pointer mt-1"
-                    >
-                      <Volume2 size={13} />
-                      <span>Dengar Pengucapan</span>
-                    </button>
-                  </>
-                )}
-
-                {currentQ.type === 1 && (
-                  <>
-                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-2">
-                      MANA KARAKTER HANZI UNTUK KATA INI?
                     </span>
-                    <div className="text-2xl font-bold text-rose-500 font-mono">
-                      {currentQ.targetWord.pinyin}
-                    </div>
-                    <div className="text-lg font-bold text-slate-900 mt-1">
-                      "{currentQ.targetWord.arti}"
-                    </div>
-                    <button
-                      onClick={() => speakChinese(currentQ.targetWord.hanzi, audioSpeed)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-50 text-rose-600 text-xs font-semibold hover:bg-rose-100 transition-colors cursor-pointer mt-2"
-                    >
-                      <Volume2 size={13} />
-                      <span>Dengar Audio</span>
-                    </button>
-                  </>
-                )}
+                    {/* Audio is strictly NOT provided here because it would give away the answer */}
+                  </div>
 
-                {currentQ.type === 2 && (
-                  <>
-                    <span className="text-[11px] font-bold text-indigo-500 uppercase tracking-wider block mb-2">
-                      🎧 REFLEKS MENDENGAR: PILIH HANZI YANG ANDA DENGAR
-                    </span>
-                    <button
-                      onClick={() => speakChinese(currentQ.targetWord.hanzi, audioSpeed)}
-                      className="w-16 h-16 rounded-full bg-gradient-to-tr from-indigo-500 to-rose-500 text-white flex items-center justify-center mx-auto shadow-md hover:scale-105 active:scale-95 transition-all cursor-pointer my-2"
-                    >
-                      <Volume2 size={26} />
-                    </button>
-                    <p className="text-xs text-slate-400 mt-1">Ketuk tombol untuk memutar ulang audio</p>
-                  </>
-                )}
-              </div>
+                  {/* 4 Indonesian Meaning Options */}
+                  <div className="space-y-2.5">
+                    {currentQ.options.map((opt) => {
+                      const isChosen = selectedOption?.id === opt.id;
+                      const isCorrect = opt.id === currentQ.correctId;
 
-              {/* Options Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                {currentQ.options.map((option) => {
-                  const isTarget = option.id === currentQ.correctId;
-                  const isChosen = selectedOption === option.id;
+                      let btnStyle = "border-[#2d4f43]/20 bg-white text-slate-800 hover:border-[#2d4f43]/50 shadow-[0_3px_0_0_#2d4f43]/10";
+                      if (isAnswered) {
+                        if (isCorrect) {
+                          btnStyle = "border-[#2d5747] bg-[#2d5747] text-white shadow-md";
+                        } else if (isChosen) {
+                          btnStyle = "border-rose-500 bg-rose-50 text-rose-950";
+                        } else {
+                          btnStyle = "border-slate-200 bg-white text-slate-400 opacity-50";
+                        }
+                      } else if (isChosen) {
+                        btnStyle = "border-[#2d5747] bg-emerald-50 text-[#1e3d30]";
+                      }
 
-                  let btnStyle = "bg-white border-slate-200 hover:border-slate-300 text-slate-800";
-                  if (isAnswered) {
-                    if (isTarget) {
-                      btnStyle = "bg-emerald-50 border-emerald-500 text-emerald-950 ring-2 ring-emerald-500/20";
-                    } else if (isChosen) {
-                      btnStyle = "bg-rose-50 border-rose-500 text-rose-950 ring-2 ring-rose-500/20";
-                    } else {
-                      btnStyle = "bg-slate-50 border-slate-100 text-slate-400 opacity-60";
-                    }
-                  }
+                      return (
+                        <button
+                          key={opt.id}
+                          onClick={() => handleSelectChoice(opt)}
+                          disabled={isAnswered}
+                          className={`w-full p-4 rounded-2xl border-2 font-bold text-sm sm:text-base text-left transition-all cursor-pointer ${btnStyle}`}
+                        >
+                          <span>{opt.arti}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
-                  return (
-                    <button
-                      key={option.id}
-                      onClick={() => handleSelect(option)}
-                      disabled={isAnswered}
-                      className={`p-3.5 rounded-2xl border text-left transition-all font-semibold flex items-center justify-between cursor-pointer ${btnStyle}`}
-                    >
-                      <div>
-                        {currentQ.type === 0 ? (
-                          <>
-                            <div className="text-xs font-mono text-rose-600 font-bold">{option.pinyin}</div>
-                            <div className="text-xs font-bold text-slate-800 mt-0.5">{option.arti}</div>
-                          </>
-                        ) : (
-                          <>
-                            <div className="text-2xl font-black font-hanzi text-slate-900">{option.hanzi}</div>
-                            {isAnswered && (
-                              <div className="text-[11px] font-mono text-slate-500">{option.pinyin} • {option.arti}</div>
-                            )}
-                          </>
-                        )}
-                      </div>
-
-                      {isAnswered && isTarget && (
-                        <CheckCircle2 size={18} className="text-emerald-600 shrink-0" />
-                      )}
-                      {isAnswered && isChosen && !isTarget && (
-                        <XCircle size={18} className="text-rose-600 shrink-0" />
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Next Question CTA */}
-              {isAnswered && (
-                <div className="pt-2 animate-fade-in">
+              {/* ---------------- TYPE 3: 他说什么？ (LISTENING AUDIO COMPREHENSION) ---------------- */}
+              {currentQ.type === 'listening_phrase' && (
+                <div className="space-y-4 pt-1">
+                  {/* Big Audio Play Button */}
                   <button
-                    onClick={handleNext}
-                    className="w-full py-3 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-md active:scale-98 cursor-pointer"
+                    onClick={() => handlePlayAudio(currentQ.audioText)}
+                    className={`w-full py-4 px-6 rounded-2xl border-2 border-[#2d4f43]/30 bg-white hover:bg-emerald-50/40 text-[#1e453e] font-extrabold text-base sm:text-lg flex items-center justify-center gap-3 shadow-[0_3px_0_0_#2d4f43]/15 active:translate-y-0.5 transition-all cursor-pointer ${
+                      isPlayingAudio ? 'ring-4 ring-emerald-200 bg-emerald-50' : ''
+                    }`}
                   >
-                    <span>{currentIndex < questions.length - 1 ? 'Soal Berikutnya' : 'Lihat Hasil Akhir'}</span>
-                    <ArrowRight size={14} />
+                    <Volume2 size={24} className={isPlayingAudio ? 'text-emerald-600 animate-pulse' : 'text-[#2d5747]'} />
+                    <span>{isPlayingAudio ? 'Sedang Memutar Audio...' : 'Putar audio'}</span>
                   </button>
+
+                  {/* Options List */}
+                  <div className="space-y-2.5">
+                    {currentQ.options.map((opt) => {
+                      const isChosen = selectedOption?.id === opt.id;
+                      const isCorrect = opt.id === currentQ.correctId;
+
+                      let btnStyle = "border-[#2d4f43]/20 bg-white text-slate-800 hover:border-[#2d4f43]/50 shadow-[0_3px_0_0_#2d4f43]/10";
+                      if (isAnswered) {
+                        if (isCorrect) {
+                          btnStyle = "border-[#2d5747] bg-[#2d5747] text-white shadow-md";
+                        } else if (isChosen) {
+                          btnStyle = "border-rose-500 bg-rose-50 text-rose-950";
+                        } else {
+                          btnStyle = "border-slate-200 bg-white text-slate-400 opacity-50";
+                        }
+                      } else if (isChosen) {
+                        btnStyle = "border-[#2d5747] bg-emerald-50 text-[#1e3d30]";
+                      }
+
+                      return (
+                        <button
+                          key={opt.id}
+                          onClick={() => handleSelectChoice(opt)}
+                          disabled={isAnswered}
+                          className={`w-full p-4 rounded-2xl border-2 text-left transition-all cursor-pointer ${btnStyle}`}
+                        >
+                          <div className="font-extrabold text-base sm:text-lg font-hanzi">
+                            {opt.hanzi}
+                          </div>
+                          <div className={`text-xs font-mono mt-0.5 ${
+                            isAnswered && isCorrect ? 'text-emerald-100' : 'text-slate-500'
+                          }`}>
+                            {opt.pinyin}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Skip Audio Link */}
+                  {!isAnswered && (
+                    <div className="text-center pt-1">
+                      <button
+                        onClick={() => setShowListeningHint(true)}
+                        className="text-[11px] font-bold uppercase tracking-wider text-[#3d7055] hover:text-[#1e3d30] underline decoration-dotted cursor-pointer"
+                      >
+                        {showListeningHint ? `Petunjuk Audio: ${currentQ.targetWord.pinyin}` : 'TAK BISA DENGAR SEKARANG'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ---------------- TYPE 4: TEBAK NADA (TONE IDENTIFICATION) ---------------- */}
+              {currentQ.type === 'tone_quiz' && (
+                <div className="space-y-4 pt-1">
+                  {/* Center Hanzi + Pinyin Card */}
+                  <div className="p-5 rounded-2xl border-2 border-[#2d4f43]/30 bg-white text-center shadow-[0_3px_0_0_#2d4f43]/15 max-w-xs mx-auto flex items-center justify-center gap-3">
+                    <span className="text-4xl sm:text-5xl font-black font-hanzi text-slate-900">
+                      {currentQ.targetWord.hanzi}
+                    </span>
+                    <span className="text-2xl font-bold font-mono text-[#2d5747]">
+                      {currentQ.targetWord.pinyin}
+                    </span>
+                  </div>
+
+                  {/* 4 Tone Options (nada 1, nada 2, nada 3, nada 4) */}
+                  <div className="space-y-2.5">
+                    {currentQ.options.map((opt) => {
+                      const isChosen = selectedOption?.id === opt.id;
+                      const isCorrect = opt.id === currentQ.correctTone;
+
+                      let btnStyle = "border-[#2d4f43]/20 bg-white text-slate-800 hover:border-[#2d4f43]/50 shadow-[0_3px_0_0_#2d4f43]/10";
+                      if (isAnswered) {
+                        if (isCorrect) {
+                          btnStyle = "border-[#2d5747] bg-[#2d5747] text-white shadow-md";
+                        } else if (isChosen) {
+                          btnStyle = "border-rose-500 bg-rose-50 text-rose-950";
+                        } else {
+                          btnStyle = "border-slate-200 bg-white text-slate-400 opacity-50";
+                        }
+                      } else if (isChosen) {
+                        btnStyle = "border-[#2d5747] bg-emerald-50 text-[#1e3d30]";
+                      }
+
+                      return (
+                        <button
+                          key={opt.id}
+                          onClick={() => handleSelectChoice(opt)}
+                          disabled={isAnswered}
+                          className={`w-full p-4 rounded-2xl border-2 font-bold text-sm sm:text-base text-left transition-all flex items-center justify-between cursor-pointer ${btnStyle}`}
+                        >
+                          <div>
+                            <span>{opt.label}</span>
+                            <span className={`text-xs ml-2 font-normal ${
+                              isAnswered && isCorrect ? 'text-emerald-100' : 'text-slate-400'
+                            }`}>
+                              ({opt.desc})
+                            </span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
             </div>
           ) : isFinished ? (
-            /* Results View */
+            /* ---------------- RESULTS VIEW ---------------- */
             <div className="text-center space-y-5 animate-fade-in py-2">
               <div className={`w-16 h-16 rounded-3xl flex items-center justify-center mx-auto shadow-lg ${
-                percentScore >= 70 ? 'bg-emerald-500 text-white shadow-emerald-500/20' : 'bg-amber-500 text-white shadow-amber-500/20'
+                percentScore >= 70 ? 'bg-emerald-600 text-white shadow-emerald-600/20' : 'bg-amber-500 text-white shadow-amber-500/20'
               }`}>
-                {percentScore >= 70 ? <Award size={32} /> : <Zap size={32} />}
+                {percentScore >= 70 ? <Award size={34} /> : <Zap size={34} />}
               </div>
 
               <div>
-                <h3 className="text-xl font-black text-slate-900">
+                <h3 className="text-2xl font-black text-[#1e3d30]">
                   {percentScore >= 80 ? 'Luar Biasa! Hanzi Dikuasai!' : percentScore >= 60 ? 'Bagus! Hampir Sempurna!' : 'Perlu Diulang Kembali'}
                 </h3>
                 <p className="text-xs text-slate-500 mt-1">
-                  Anda menjawab benar {score} dari {questions.length} soal Hanzi {day !== 'all' ? `Hari ${day}` : ''}.
+                  Anda menjawab benar {score} dari {questions.length} variasi tes {day !== 'all' ? `Hari ${day}` : 'harian'}.
                 </p>
               </div>
 
               {/* Score Metric Card */}
-              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-around text-center">
+              <div className="p-4 rounded-2xl bg-white border border-[#2d4f43]/20 shadow-xs flex items-center justify-around text-center">
                 <div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase block">Skor Akhir</span>
-                  <span className="text-2xl font-black font-mono text-slate-900">{percentScore}%</span>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase block">Skor</span>
+                  <span className="text-2xl font-black font-mono text-[#1e3d30]">{percentScore}%</span>
                 </div>
                 <div className="h-8 w-px bg-slate-200" />
                 <div>
@@ -356,41 +700,55 @@ export default function DayHanziQuizModal({
                 </div>
               </div>
 
-              {/* Word Results Review List */}
+              {/* Detailed Summary Review */}
               <div className="text-left space-y-2 pt-2">
                 <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-                  Ringkasan Kosakata Diuji:
+                  Catatan Evaluasi Tes:
                 </span>
                 <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
                   {userAnswers.map((item, idx) => (
                     <div 
                       key={idx}
                       className={`p-2.5 rounded-xl border flex items-center justify-between text-xs ${
-                        item.isCorrect ? 'bg-emerald-50/50 border-emerald-100' : 'bg-rose-50/50 border-rose-100'
+                        item.isCorrect ? 'bg-emerald-50/60 border-emerald-200' : 'bg-rose-50/60 border-rose-200'
                       }`}
                     >
                       <div className="flex items-center gap-2">
-                        <span className="font-hanzi font-bold text-base text-slate-900">
-                          {item.question.targetWord.hanzi}
-                        </span>
-                        <span className="font-mono text-rose-600">{item.question.targetWord.pinyin}</span>
-                        <span className="text-slate-500">• {item.question.targetWord.arti}</span>
+                        {item.question?.targetWord ? (
+                          <>
+                            <span className="font-hanzi font-bold text-base text-slate-900">
+                              {item.question.targetWord.hanzi}
+                            </span>
+                            <span className="font-mono text-[#2d5747] font-semibold">
+                              {item.question.targetWord.pinyin}
+                            </span>
+                            <span className="text-slate-500">• {item.question.targetWord.arti}</span>
+                          </>
+                        ) : (
+                          <span className="text-slate-700 font-medium">{item.summary || `Soal #${idx + 1}`}</span>
+                        )}
                       </div>
-                      {item.isCorrect ? (
-                        <span className="text-emerald-600 font-bold text-[11px]">✓ Benar</span>
-                      ) : (
-                        <span className="text-rose-600 font-bold text-[11px]">✕ Salah</span>
-                      )}
+                      <span className={`font-bold text-[11px] ${item.isCorrect ? 'text-emerald-700' : 'text-rose-700'}`}>
+                        {item.isCorrect ? '✓ Benar' : '✕ Salah'}
+                      </span>
                     </div>
                   ))}
                 </div>
               </div>
 
               {/* Action Buttons */}
-              <div className="grid grid-cols-2 gap-2 pt-3">
+              <div className="grid grid-cols-2 gap-2 pt-2">
                 <button
-                  onClick={restartQuiz}
-                  className="py-2.5 px-3 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                  onClick={() => {
+                    // Trigger fresh generator
+                    const ev = new Event('restart_quiz');
+                    setCurrentIndex(0);
+                    setScore(0);
+                    setIsFinished(false);
+                    setUserAnswers([]);
+                    resetCurrentQuestionState();
+                  }}
+                  className="py-3 px-4 rounded-2xl bg-white border border-[#2d4f43]/20 hover:bg-slate-50 text-slate-700 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                 >
                   <RotateCcw size={14} />
                   <span>Ulangi Tes</span>
@@ -398,7 +756,7 @@ export default function DayHanziQuizModal({
 
                 <button
                   onClick={onClose}
-                  className="py-2.5 px-3 rounded-2xl bg-rose-500 hover:bg-rose-600 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors shadow-md shadow-rose-500/20 cursor-pointer"
+                  className="py-3 px-4 rounded-2xl bg-[#1e453e] hover:bg-[#163530] text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors shadow-md cursor-pointer"
                 >
                   <Check size={14} />
                   <span>Selesai</span>
@@ -407,6 +765,62 @@ export default function DayHanziQuizModal({
             </div>
           ) : null}
         </div>
+
+        {/* ---------------- BOTTOM ACTION CONTAINER ---------------- */}
+        {!isFinished && (
+          <div className="p-4 bg-white border-t border-[#2d4f43]/15">
+            {!isAnswered ? (
+              <button
+                disabled
+                className="w-full py-4 rounded-2xl bg-[#e8e2d5] text-[#7d7568] font-bold text-sm text-center cursor-not-allowed select-none transition-colors"
+              >
+                {currentQ?.type === 'match_pairs' ? 'Pasangkan semua pilihan dulu.' : 'Pilih jawabanmu dulu.'}
+              </button>
+            ) : (
+              <div className="space-y-2 animate-fade-in">
+                {/* Instant Feedback Banner */}
+                {selectedOption?.id === currentQ?.correctId || 
+                 selectedOption?.id === currentQ?.correctTone ||
+                 currentQ?.type === 'match_pairs' ? (
+                  <div className="flex items-center gap-2 text-emerald-800 font-black text-base">
+                    <div className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs">
+                      ✓
+                    </div>
+                    <span>Tepat!</span>
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 text-rose-800 font-black text-base">
+                      <div className="w-5 h-5 rounded-full bg-rose-600 text-white flex items-center justify-center text-xs">
+                        ✕
+                      </div>
+                      <span>Belum Tepat</span>
+                    </div>
+                    <p className="text-xs text-rose-700 font-medium">
+                      Kunci Jawaban:{' '}
+                      <strong>
+                        {currentQ.type === 'hanzi_meaning' 
+                          ? currentQ.correctArti 
+                          : currentQ.type === 'tone_quiz' 
+                          ? `nada ${currentQ.correctTone}` 
+                          : currentQ.targetWord?.hanzi}
+                      </strong>
+                    </p>
+                  </div>
+                )}
+
+                {/* Continue CTA Button */}
+                <button
+                  onClick={handleNext}
+                  className="w-full py-4 rounded-2xl bg-[#1e453e] hover:bg-[#163530] active:scale-98 text-white font-extrabold text-sm sm:text-base flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer"
+                >
+                  <span>{currentIndex < questions.length - 1 ? 'Lanjut' : 'Lihat Hasil Akhir'}</span>
+                  <ArrowRight size={16} />
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

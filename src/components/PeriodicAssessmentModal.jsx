@@ -217,13 +217,6 @@ export default function PeriodicAssessmentModal({
                     <div className="text-6xl font-black text-slate-900 font-hanzi my-2">
                       {currentQ.targetWord.hanzi}
                     </div>
-                    <button
-                      onClick={() => speakChinese(currentQ.targetWord.hanzi, audioSpeed)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-50 text-rose-600 text-xs font-semibold hover:bg-rose-100 transition-colors cursor-pointer mt-1"
-                    >
-                      <Volume2 size={13} />
-                      <span>Dengar Audio</span>
-                    </button>
                   </>
                 )}
 

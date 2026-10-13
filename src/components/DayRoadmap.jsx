@@ -11,13 +11,15 @@ import {
   Award,
   Lock,
   ShieldCheck,
-  BookOpen
+  BookOpen,
+  HelpCircle
 } from 'lucide-react';
 import { DAYS_CONFIG } from '../data/hsk1Words';
 import { useLearning } from '../context/LearningContext';
 import PeriodicAssessmentModal from './PeriodicAssessmentModal';
 import FinalAssessmentModal from './FinalAssessmentModal';
 import DayGrammarModal from './DayGrammarModal';
+import DayHanziQuizModal from './DayHanziQuizModal';
 
 export default function DayRoadmap({ onSelectDayStudy }) {
   const { 
@@ -84,6 +86,7 @@ export default function DayRoadmap({ onSelectDayStudy }) {
   const [isFinalModalOpen, setIsFinalModalOpen] = useState(false);
   const [isLockedNoticeOpen, setIsLockedNoticeOpen] = useState(false);
   const [selectedGrammarDay, setSelectedGrammarDay] = useState(null);
+  const [activeQuizDay, setActiveQuizDay] = useState(null);
 
   const currentMilestoneFilter = selectedMilestone === 'active' ? activeMilestoneId : selectedMilestone;
 
@@ -228,6 +231,13 @@ export default function DayRoadmap({ onSelectDayStudy }) {
               <ArrowRight size={13} />
             </button>
 
+            <button
+              onClick={() => setActiveQuizDay(activeDayNum)}
+              className="w-full py-2.5 px-4 rounded-2xl bg-[#1e453e] hover:bg-[#163530] active:scale-98 text-white font-bold text-xs shadow-sm shadow-[#1e453e]/20 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              <HelpCircle size={14} className="text-emerald-300" />
+              <span>Uji Pengetahuan Hari ke-{activeDayNum} (Kuis Interaktif)</span>
+            </button>
           </div>
         </div>
       </div>
@@ -428,6 +438,13 @@ export default function DayRoadmap({ onSelectDayStudy }) {
                       title="Speed Drill 60 Detik"
                     >
                       <Zap size={15} />
+                    </button>
+                    <button
+                      onClick={() => setActiveQuizDay(dayCfg.day)}
+                      className="p-2 text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50 rounded-xl transition-colors cursor-pointer"
+                      title={`Uji Pengetahuan Hari ${dayCfg.day} (Kuis Interaktif)`}
+                    >
+                      <HelpCircle size={15} />
                     </button>
                   </div>
 
@@ -698,6 +715,16 @@ export default function DayRoadmap({ onSelectDayStudy }) {
         currentLevel={currentLevel}
         onStartStudy={onSelectDayStudy}
       />
+
+      {/* Day Hanzi Quiz Modal */}
+      {activeQuizDay && (
+        <DayHanziQuizModal
+          isOpen={Boolean(activeQuizDay)}
+          onClose={() => setActiveQuizDay(null)}
+          day={activeQuizDay}
+          dayWords={words.filter(w => w.day === activeQuizDay)}
+        />
+      )}
     </div>
   );
 }
