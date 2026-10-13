@@ -192,16 +192,53 @@ export function stopChineseSpeech() {
   }
 }
 
+// In-memory cache for instant 0ms audio playback
+const audioMemoryCache = new Map();
+
 /**
- * Play a single turn using Google Studio Neural Audio
+ * Preload Chinese audio in background memory so when clicked it plays instantly with 0ms delay
+ */
+export function preloadChineseAudio(rawText, speed = 0.90) {
+  if (typeof window === 'undefined' || !rawText) return;
+  const turns = parseDialogueTurns(rawText);
+  turns.forEach(turn => {
+    const textKey = turn.text.trim();
+    if (!textKey || audioMemoryCache.has(textKey)) return;
+
+    try {
+      const encoded = encodeURIComponent(textKey);
+      const audioUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=zh-CN&client=tw-ob&q=${encoded}`;
+      const audio = new Audio();
+      audio.preload = 'auto';
+      audio.src = audioUrl;
+      audio.playbackRate = Math.max(0.75, Math.min(1.25, speed || 0.9));
+      audio.load();
+      audioMemoryCache.set(textKey, audio);
+    } catch {
+      // Ignore background preload failures
+    }
+  });
+}
+
+/**
+ * Play a single turn using Google Studio Neural Audio with In-Memory Caching & 300ms Watchdog
  */
 function playTurnWithGoogleAudio(text, speed, onDone) {
   try {
-    const encoded = encodeURIComponent(text);
-    const audioUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=zh-CN&client=tw-ob&q=${encoded}`;
-    const audio = new Audio(audioUrl);
+    const textKey = text.trim();
+    let audio = audioMemoryCache.get(textKey);
+
+    if (!audio) {
+      const encoded = encodeURIComponent(textKey);
+      const audioUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=zh-CN&client=tw-ob&q=${encoded}`;
+      audio = new Audio(audioUrl);
+      audio.preload = 'auto';
+      audioMemoryCache.set(textKey, audio);
+    }
+
     currentAudioElement = audio;
     audio.playbackRate = Math.max(0.75, Math.min(1.25, speed || 0.9));
+    audio.currentTime = 0;
 
     let isDone = false;
     const finish = (success) => {
@@ -214,17 +251,19 @@ function playTurnWithGoogleAudio(text, speed, onDone) {
     audio.onended = () => finish(true);
     audio.onerror = () => finish(false);
 
-    // Watchdog timer in case audio stalls
+    // Fast watchdog: if network stalls > 300ms, immediately cut over to instant local speech (0ms wait)
     const watchdog = setTimeout(() => {
-      if (!isDone && audio.paused && audio.currentTime === 0) {
+      if (!isDone && audio.paused) {
         finish(false);
       }
-    }, 3500);
+    }, 300);
 
     const playPromise = audio.play();
     if (playPromise !== undefined) {
       playPromise
-        .then(() => clearTimeout(watchdog))
+        .then(() => {
+          clearTimeout(watchdog);
+        })
         .catch(() => {
           clearTimeout(watchdog);
           finish(false);

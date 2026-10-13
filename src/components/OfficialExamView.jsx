@@ -24,7 +24,7 @@ import {
 import confetti from 'canvas-confetti';
 import { generateOfficialExam } from '../data/officialExamBank';
 import { HSK1_PACKAGES_METADATA, getOfficialExamPackage } from '../data/hsk1OfficialExamPackages';
-import { speakChinese, stopChineseSpeech } from '../utils/speech';
+import { speakChinese, stopChineseSpeech, preloadChineseAudio } from '../utils/speech';
 import { useLearning } from '../context/LearningContext';
 import OfficialCertificateModal from './OfficialCertificateModal';
 
@@ -56,15 +56,26 @@ export default function OfficialExamView() {
 
   const timerRef = useRef(null);
 
-  // Reset audio state and stop playback on question change or unmount
+  // Reset audio state and stop playback on question change or unmount + Proactive Preload for 0ms delay
   useEffect(() => {
     setIsPlayingAudio(false);
     setActiveSpeakerTurn(null);
     stopChineseSpeech();
+
+    // Proactively preload audio for current question and upcoming question into RAM
+    const curr = examSession?.allQuestions[currentIndex];
+    if (curr?.audioText) {
+      preloadChineseAudio(curr.audioText, audioSpeed);
+    }
+    const next = examSession?.allQuestions[currentIndex + 1];
+    if (next?.audioText) {
+      preloadChineseAudio(next.audioText, audioSpeed);
+    }
+
     return () => {
       stopChineseSpeech();
     };
-  }, [currentIndex]);
+  }, [currentIndex, examSession, audioSpeed]);
 
   const handlePlayAudio = (text) => {
     if (isPlayingAudio) {
@@ -99,6 +110,10 @@ export default function OfficialExamView() {
     setCurrentIndex(0);
     setTimeLeft(newExam.durationMinutes ? newExam.durationMinutes * 60 : 2100);
     setExamState('testing');
+
+    // Instantly buffer first 2 questions into RAM
+    if (newExam.allQuestions[0]?.audioText) preloadChineseAudio(newExam.allQuestions[0].audioText, audioSpeed);
+    if (newExam.allQuestions[1]?.audioText) preloadChineseAudio(newExam.allQuestions[1].audioText, audioSpeed);
   };
 
   // Timer countdown
