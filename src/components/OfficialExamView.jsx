@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { generateOfficialExam } from '../data/officialExamBank';
-import { HSK1_OFFICIAL_H10901 } from '../data/hsk1OfficialH10901';
+import { HSK1_PACKAGES_METADATA, getOfficialExamPackage } from '../data/hsk1OfficialExamPackages';
 import { speakChinese } from '../utils/speech';
 import { useLearning } from '../context/LearningContext';
 import OfficialCertificateModal from './OfficialCertificateModal';
@@ -67,20 +67,20 @@ export default function OfficialExamView() {
     });
   };
 
-  // Start official exam session (H10901 Authentic Past Paper or Adaptive Bank)
-  const startNewExam = (mode = 'h10901') => {
+  // Start official exam session (11 Official CTI Packages or Adaptive Bank)
+  const startNewExam = (packageId = 'h10901') => {
     if (!isFinalAssessmentPassed) {
       navigate('/study/roadmap');
       return;
     }
-    const newExam = (mode === 'h10901' && (currentLevel === 1 || !currentLevel)) 
-      ? HSK1_OFFICIAL_H10901 
-      : generateOfficialExam(words);
+    const newExam = packageId === 'adaptive'
+      ? generateOfficialExam(words)
+      : getOfficialExamPackage(packageId);
 
     setExamSession(newExam);
     setUserAnswers({});
     setCurrentIndex(0);
-    setTimeLeft(newExam.durationMinutes ? newExam.durationMinutes * 60 : 1500);
+    setTimeLeft(newExam.durationMinutes ? newExam.durationMinutes * 60 : 2100);
     setExamState('testing');
   };
 
@@ -126,8 +126,8 @@ export default function OfficialExamView() {
       if (userAnswers[q.id] === q.answer) readingCorrect++;
     });
 
-    const isH10901 = examSession.examId === 'H10901';
-    const ptsPerQ = isH10901 ? 5 : 10;
+    const isAdaptive = examSession.examId === 'ADAPTIVE_MOCK' || examSession.totalQuestions === 20;
+    const ptsPerQ = isAdaptive ? 10 : 5;
     const listeningScore = listeningCorrect * ptsPerQ; // Max 100
     const readingScore = readingCorrect * ptsPerQ;     // Max 100
     const totalScore = listeningScore + readingScore; // Max 200
@@ -284,70 +284,115 @@ export default function OfficialExamView() {
               </button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Option 1: Official H10901 */}
-              <div className="p-5 sm:p-6 card-subtle rounded-3xl bg-gradient-to-br from-rose-50/60 via-white to-amber-50/40 border border-rose-200 shadow-xs flex flex-col justify-between space-y-4 hover:border-rose-300 hover:shadow-md transition-all">
-                <div className="space-y-2.5">
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="px-2.5 py-0.5 rounded-full bg-rose-500 text-white text-[10px] font-black tracking-wider uppercase">
-                      Standar Resmi CTI
+            <div className="space-y-6">
+              {/* Header Info */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-gradient-to-r from-rose-50 via-white to-amber-50/50 p-4 sm:p-5 rounded-3xl border border-rose-100 shadow-2xs">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="px-2.5 py-0.5 rounded-full bg-rose-500 text-white text-[10px] font-black uppercase tracking-wider">
+                      Standar CTI Resmi
                     </span>
-                    <span className="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-bold">
-                      🖼️ 25 Soal Bergambar
-                    </span>
-                    <span className="px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-800 text-[10px] font-bold">
-                      🎧 Audio 15 Menit
+                    <span className="text-xs font-bold text-slate-500">
+                      11 Paket Tersedia
                     </span>
                   </div>
                   <h3 className="text-base sm:text-lg font-black text-slate-900">
-                    Kertas Ujian Asli CTI (Set H10901)
+                    Koleksi Lengkap 11 Paket Ujian Asli HSK 1
                   </h3>
-                  <p className="text-xs text-slate-600 leading-relaxed font-normal">
-                    Format simulasi 100% identik dengan naskah ujian resmi: 40 butir soal asli (Part I–IV Menyimak & Membaca), 25 foto & kisi gambar autentik, serta audio resmi berdurasi 15 menit.
+                  <p className="text-xs text-slate-600 max-w-2xl leading-relaxed">
+                    Setiap paket berisi 40 butir soal asli (20 Menyimak + 20 Membaca), 25 soal bergambar autentik, durasi 35 menit, dan batas kelulusan 120/200 poin bersertifikat.
                   </p>
                 </div>
 
-                <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-slate-500 font-mono">40 Soal • 35 Menit</span>
-                  <button
-                    onClick={() => startNewExam('h10901')}
-                    className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
-                  >
-                    <span>Mulai Ujian Asli</span>
-                    <ChevronRight size={14} />
-                  </button>
-                </div>
+                <button
+                  onClick={() => startNewExam('adaptive')}
+                  className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 active:scale-95 text-white font-bold text-xs rounded-2xl shadow-xs transition-all cursor-pointer flex items-center justify-center gap-2 shrink-0"
+                >
+                  <Sparkles size={14} className="text-amber-400" />
+                  <span>Latihan Acak Adaptif (20 Soal)</span>
+                </button>
               </div>
 
-              {/* Option 2: Adaptive Fast Quiz */}
-              <div className="p-5 sm:p-6 card-subtle rounded-3xl bg-white border border-slate-200/80 shadow-xs flex flex-col justify-between space-y-4 hover:border-slate-300 hover:shadow-md transition-all">
-                <div className="space-y-2.5">
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[10px] font-black tracking-wider uppercase">
-                      Latihan Cepat
-                    </span>
-                    <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
-                      ⚡ Bank Soal Acak
-                    </span>
-                  </div>
-                  <h3 className="text-base sm:text-lg font-bold text-slate-900">
-                    Simulasi Cepat Adaptif
-                  </h3>
-                  <p className="text-xs text-slate-600 leading-relaxed font-normal">
-                    Kombinasi 20 butir soal dinamis dari bank soal kosakata aktif. Soal diacak secara instan, sangat pas untuk pemanasan cepat kapan pun Anda inginkan.
-                  </p>
-                </div>
+              {/* 11 Packages Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {HSK1_PACKAGES_METADATA.map((pkg) => {
+                  const attempts = officialHistory.filter(h => h.examId === pkg.code);
+                  const bestScore = attempts.length > 0 ? Math.max(...attempts.map(h => h.totalScore || h.score || 0)) : null;
+                  const isPassed = attempts.some(h => h.passed);
 
-                <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-slate-500 font-mono">20 Soal • 25 Menit</span>
-                  <button
-                    onClick={() => startNewExam('adaptive')}
-                    className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 active:scale-95 text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
-                  >
-                    <span>Latihan Acak</span>
-                    <ChevronRight size={14} />
-                  </button>
-                </div>
+                  return (
+                    <div 
+                      key={pkg.id}
+                      className="p-5 card-subtle rounded-3xl bg-white border border-slate-200/90 shadow-2xs hover:border-rose-300 hover:shadow-md transition-all flex flex-col justify-between space-y-4 group"
+                    >
+                      <div className="space-y-3">
+                        {/* Top Badges */}
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-1.5">
+                            <span className="px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-800 text-[10px] font-black uppercase tracking-wider">
+                              Paket {pkg.num.toString().padStart(2, '0')}
+                            </span>
+                            <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[10px] font-bold font-mono">
+                              {pkg.code}
+                            </span>
+                          </div>
+
+                          {isPassed ? (
+                            <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-black flex items-center gap-1">
+                              <CheckCircle2 size={12} className="text-emerald-600" />
+                              <span>{bestScore}/200</span>
+                            </span>
+                          ) : bestScore !== null ? (
+                            <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-black">
+                              Skor: {bestScore}/200
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded-full bg-slate-50 text-slate-400 text-[10px] font-semibold border border-slate-100">
+                              Tahun {pkg.year}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Title & Desc */}
+                        <div>
+                          <h4 className="text-sm font-black text-slate-900 group-hover:text-rose-600 transition-colors">
+                            {pkg.title}
+                          </h4>
+                          <p className="text-xs text-slate-500 mt-1 line-clamp-2 leading-relaxed">
+                            {pkg.desc}
+                          </p>
+                        </div>
+
+                        {/* Feature Badges */}
+                        <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                          <span className="px-2 py-0.5 rounded-lg bg-slate-100 text-slate-600 text-[10px] font-bold">
+                            📝 40 Soal
+                          </span>
+                          <span className="px-2 py-0.5 rounded-lg bg-amber-50 text-amber-800 border border-amber-100/60 text-[10px] font-bold">
+                            🖼️ 25 Gambar
+                          </span>
+                          <span className="px-2 py-0.5 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-100/60 text-[10px] font-bold">
+                            ⏱️ 35 Menit
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Footer CTA */}
+                      <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+                        <span className="text-[11px] font-bold text-slate-400">
+                          {attempts.length > 0 ? `${attempts.length}x dicoba` : 'Belum dikerjakan'}
+                        </span>
+                        <button
+                          onClick={() => startNewExam(pkg.id)}
+                          className="px-4 py-2 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer flex items-center gap-1 group-hover:shadow-rose-500/20"
+                        >
+                          <span>Mulai Ujian</span>
+                          <ChevronRight size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -422,9 +467,9 @@ export default function OfficialExamView() {
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-50 text-rose-600 border border-rose-200 uppercase tracking-wider">
                   {currentQ.part}
                 </span>
-                {examSession.examId === 'H10901' && (
+                {examSession.examId && (
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
-                    Set H10901
+                    Set {examSession.examId}
                   </span>
                 )}
               </div>
@@ -450,7 +495,7 @@ export default function OfficialExamView() {
                     <Volume2 size={16} />
                   </div>
                   <div>
-                    <h4 className="text-xs sm:text-sm font-bold text-slate-900">Audio Rekaman Resmi CTI HSK 1 (Set H10901)</h4>
+                    <h4 className="text-xs sm:text-sm font-bold text-slate-900">Audio Rekaman Resmi CTI HSK 1 ({examSession.examId || 'Set H10901'})</h4>
                     <p className="text-[11px] text-slate-500">Putar audio resmi ini untuk menyimak instruksi & dialog ujian nyata (15 Menit)</p>
                   </div>
                 </div>
@@ -497,6 +542,9 @@ export default function OfficialExamView() {
                 <img 
                   src={currentQ.image} 
                   alt="Ilustrasi Soal Resmi CTI" 
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                  }}
                   className="max-h-56 sm:max-h-64 object-contain rounded-xl shadow-xs"
                 />
                 <span className="text-[10px] text-slate-400 mt-2 font-medium">Gambar Ilustrasi Ujian Resmi CTI</span>
@@ -514,6 +562,9 @@ export default function OfficialExamView() {
                   <img 
                     src={currentQ.gridImage} 
                     alt="Kisi Gambar Referensi A-F" 
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                    }}
                     className="max-h-64 sm:max-h-80 w-auto object-contain rounded-xl shadow-xs"
                   />
                 </div>
@@ -673,7 +724,7 @@ export default function OfficialExamView() {
                 {selectedCertResult.questionsSnapshot.map((q, idx) => {
                   const userAns = selectedCertResult.userAnswers[q.id];
                   const isCorrect = userAns === q.answer;
-                  const pts = q.points || (selectedCertResult.examId === 'H10901' ? 5 : 10);
+                  const pts = q.points || (selectedCertResult.totalQuestions === 40 || selectedCertResult.examId !== 'ADAPTIVE_MOCK' ? 5 : 10);
 
                   return (
                     <div
