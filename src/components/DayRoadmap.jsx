@@ -10,12 +10,14 @@ import {
   Flame,
   Award,
   Lock,
-  ShieldCheck
+  ShieldCheck,
+  BookOpen
 } from 'lucide-react';
 import { DAYS_CONFIG } from '../data/hsk1Words';
 import { useLearning } from '../context/LearningContext';
 import PeriodicAssessmentModal from './PeriodicAssessmentModal';
 import FinalAssessmentModal from './FinalAssessmentModal';
+import DayGrammarModal from './DayGrammarModal';
 
 export default function DayRoadmap({ onSelectDayStudy }) {
   const { 
@@ -81,6 +83,7 @@ export default function DayRoadmap({ onSelectDayStudy }) {
   const [activeCheckpointModal, setActiveCheckpointModal] = useState(null);
   const [isFinalModalOpen, setIsFinalModalOpen] = useState(false);
   const [isLockedNoticeOpen, setIsLockedNoticeOpen] = useState(false);
+  const [selectedGrammarDay, setSelectedGrammarDay] = useState(null);
 
   const currentMilestoneFilter = selectedMilestone === 'active' ? activeMilestoneId : selectedMilestone;
 
@@ -356,6 +359,33 @@ export default function DayRoadmap({ onSelectDayStudy }) {
                     {dayCfg.desc}
                   </p>
 
+                  {/* Grammar Focus Pill & Formula Preview */}
+                  {dayCfg.grammarPoints && dayCfg.grammarPoints.length > 0 && (
+                    <div className="mt-3 p-2.5 rounded-2xl bg-indigo-50/70 border border-indigo-100 flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1 text-[10px] font-bold text-indigo-700 uppercase tracking-wider">
+                          <BookOpen size={11} className="text-indigo-600 shrink-0" />
+                          <span className="truncate">Tata Bahasa: {dayCfg.grammarTitle || dayCfg.grammarPoints[0].title}</span>
+                        </div>
+                        {dayCfg.grammarFormula && (
+                          <p className="font-mono text-[11px] text-slate-700 font-semibold truncate mt-0.5">
+                            {dayCfg.grammarFormula}
+                          </p>
+                        )}
+                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedGrammarDay(dayCfg);
+                        }}
+                        className="px-2 py-1 bg-white hover:bg-indigo-100/80 text-indigo-700 text-[10px] font-bold rounded-lg border border-indigo-200/80 transition-colors shrink-0 cursor-pointer shadow-2xs"
+                        title="Buka Materi Tata Bahasa"
+                      >
+                        Detail
+                      </button>
+                    </div>
+                  )}
+
                   {/* Clean progress bar */}
                   <div className="mt-4 space-y-1">
                     <div className="flex justify-between text-[11px] font-medium text-slate-400">
@@ -376,6 +406,15 @@ export default function DayRoadmap({ onSelectDayStudy }) {
                 {/* Action Buttons */}
                 <div className="pt-4 mt-4 border-t border-slate-100 flex items-center justify-between gap-2">
                   <div className="flex items-center gap-1">
+                    {dayCfg.grammarPoints && dayCfg.grammarPoints.length > 0 && (
+                      <button
+                        onClick={() => setSelectedGrammarDay(dayCfg)}
+                        className="p-2 text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded-xl transition-colors cursor-pointer"
+                        title="Pelajari Tata Bahasa Hari Ini"
+                      >
+                        <BookOpen size={15} />
+                      </button>
+                    )}
                     <button
                       onClick={() => onSelectDayStudy(dayCfg.day, 'writing')}
                       className="p-2 text-slate-400 hover:text-slate-800 hover:bg-slate-50 rounded-xl transition-colors cursor-pointer"
@@ -649,6 +688,16 @@ export default function DayRoadmap({ onSelectDayStudy }) {
           </div>
         </div>
       )}
+
+      {/* Day Grammar Modal */}
+      <DayGrammarModal
+        isOpen={Boolean(selectedGrammarDay)}
+        onClose={() => setSelectedGrammarDay(null)}
+        day={selectedGrammarDay?.day}
+        grammarPoints={selectedGrammarDay?.grammarPoints || []}
+        currentLevel={currentLevel}
+        onStartStudy={onSelectDayStudy}
+      />
     </div>
   );
 }

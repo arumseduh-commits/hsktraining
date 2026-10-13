@@ -17,12 +17,15 @@ import {
   Award,
   Zap,
   CheckCircle2,
-  Compass
+  Compass,
+  BookOpen,
+  ArrowRight
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useLearning } from '../context/LearningContext';
 import { speakChinese } from '../utils/speech';
 import DayHanziQuizModal from './DayHanziQuizModal';
+import DayGrammarModal from './DayGrammarModal';
 
 export default function FlashcardMode({ initialDay = 1 }) {
   const navigate = useNavigate();
@@ -34,7 +37,9 @@ export default function FlashcardMode({ initialDay = 1 }) {
     daysConfig,
     toggleFavorite,
     isFavorite,
-    favoriteCount
+    favoriteCount,
+    getDayGrammar,
+    currentLevel
   } = useLearning();
   const sprintDaysList = daysConfig ? daysConfig.map(d => d.day) : [1, 2, 3, 4];
 
@@ -47,6 +52,7 @@ export default function FlashcardMode({ initialDay = 1 }) {
   const [toastMessage, setToastMessage] = useState(null);
   const [isSessionCompleted, setIsSessionCompleted] = useState(false);
   const [isHanziQuizOpen, setIsHanziQuizOpen] = useState(false);
+  const [isGrammarModalOpen, setIsGrammarModalOpen] = useState(false);
   const [reviewSessionList, setReviewSessionList] = useState(null);
   const toastTimeoutRef = useRef(null);
 
@@ -88,6 +94,12 @@ export default function FlashcardMode({ initialDay = 1 }) {
     return currentSessionBatch.filter(w => wordStatus[w.id] !== 'mastered');
   }, [currentSessionBatch, wordStatus]);
 
+  // Grammar points mapped to current day
+  const dayGrammarPoints = useMemo(() => {
+    if (selectedDay === 'all') return [];
+    return getDayGrammar ? getDayGrammar(selectedDay) : [];
+  }, [selectedDay, getDayGrammar]);
+
   // Filtered words for active flashcard viewing
   const filteredWords = useMemo(() => {
     let list = words;
@@ -110,25 +122,95 @@ export default function FlashcardMode({ initialDay = 1 }) {
     return list;
   }, [words, selectedDay, filterStatus, wordStatus, shuffled, isFavorite]);
 
-  // Active deck: when user reviews unmastered words, use stable reviewSessionList to avoid skip-card mutations
-  const activeWords = useMemo(() => {
+  // Active deck: Interleave grammar cards into the study deck for this day's cluster
+  const activeDeck = useMemo(() => {
     if (reviewSessionList && reviewSessionList.length > 0) {
-      return reviewSessionList;
+      return reviewSessionList.map(w => ({ type: 'word', data: w, id: `w_${w.id}` }));
     }
-    return filteredWords;
-  }, [reviewSessionList, filteredWords]);
 
-  const currentWord = activeWords[currentIndex] || activeWords[0];
+    // When studying a specific day under all words, interleave grammar cards!
+    if (selectedDay !== 'all' && filterStatus === 'all' && dayGrammarPoints.length > 0) {
+      const items = [];
+      const wordList = filteredWords;
+      const gPoints = dayGrammarPoints;
+
+      if (gPoints.length === 1) {
+        // 1 grammar point: introduce at the start of study session
+        items.push({
+          type: 'grammar',
+          data: gPoints[0],
+          id: `g_${gPoints[0].id}`,
+          grammarIdx: 1,
+          totalGrammar: 1
+        });
+        wordList.forEach(w => items.push({ type: 'word', data: w, id: `w_${w.id}` }));
+      } else if (gPoints.length === 2) {
+        // 2 grammar points: 1 at start, 1 at midpoint
+        const mid = Math.ceil(wordList.length / 2);
+        items.push({
+          type: 'grammar',
+          data: gPoints[0],
+          id: `g_${gPoints[0].id}`,
+          grammarIdx: 1,
+          totalGrammar: 2
+        });
+        wordList.slice(0, mid).forEach(w => items.push({ type: 'word', data: w, id: `w_${w.id}` }));
+        items.push({
+          type: 'grammar',
+          data: gPoints[1],
+          id: `g_${gPoints[1].id}`,
+          grammarIdx: 2,
+          totalGrammar: 2
+        });
+        wordList.slice(mid).forEach(w => items.push({ type: 'word', data: w, id: `w_${w.id}` }));
+      } else {
+        // > 2 grammar points: distribute evenly
+        const interval = Math.max(1, Math.floor(wordList.length / gPoints.length));
+        let gIdx = 0;
+        wordList.forEach((w, wIdx) => {
+          if (wIdx % interval === 0 && gIdx < gPoints.length) {
+            items.push({
+              type: 'grammar',
+              data: gPoints[gIdx],
+              id: `g_${gPoints[gIdx].id}`,
+              grammarIdx: gIdx + 1,
+              totalGrammar: gPoints.length
+            });
+            gIdx++;
+          }
+          items.push({ type: 'word', data: w, id: `w_${w.id}` });
+        });
+        while (gIdx < gPoints.length) {
+          items.push({
+            type: 'grammar',
+            data: gPoints[gIdx],
+            id: `g_${gPoints[gIdx].id}`,
+            grammarIdx: gIdx + 1,
+            totalGrammar: gPoints.length
+          });
+          gIdx++;
+        }
+      }
+      return items;
+    }
+
+    return filteredWords.map(w => ({ type: 'word', data: w, id: `w_${w.id}` }));
+  }, [reviewSessionList, selectedDay, filterStatus, dayGrammarPoints, filteredWords]);
+
+  const currentItem = activeDeck[currentIndex] || activeDeck[0];
+  const isGrammarCard = currentItem?.type === 'grammar';
+  const currentWord = !isGrammarCard ? currentItem?.data : null;
+  const currentGrammar = isGrammarCard ? currentItem?.data : null;
 
   useEffect(() => {
     setIsFlipped(false);
   }, [currentIndex, selectedDay, filterStatus, reviewSessionList]);
 
   const handleNext = () => {
-    if (currentIndex < activeWords.length - 1) {
+    if (currentIndex < activeDeck.length - 1) {
       setCurrentIndex(prev => prev + 1);
     } else {
-      // Reached the end of the 50 words / session batch: show completion summary
+      // Reached the end of the session batch: show completion summary
       setIsSessionCompleted(true);
       setReviewSessionList(null);
       confetti({
@@ -188,21 +270,23 @@ export default function FlashcardMode({ initialDay = 1 }) {
       if (e.code === 'Space') {
         e.preventDefault();
         setIsFlipped(prev => !prev);
-      } else if (e.code === 'ArrowRight') {
+      } else if (e.code === 'ArrowRight' || e.code === 'Enter') {
         handleNext();
       } else if (e.code === 'ArrowLeft') {
         handlePrev();
       } else if (e.key === '1') {
-        handleRate('reviewing');
+        if (!isGrammarCard) handleRate('reviewing');
+        else handleNext();
       } else if (e.key === '2' || e.key === '3') {
-        handleRate('mastered');
+        if (!isGrammarCard) handleRate('mastered');
+        else handleNext();
       } else if ((e.key === 'f' || e.key === 'F') && currentWord) {
         handleToggleFav(null, currentWord);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentIndex, activeWords.length, currentWord, isSessionCompleted]);
+  }, [currentIndex, activeDeck.length, currentItem, isGrammarCard, currentWord, isSessionCompleted]);
 
   const getTonePillClass = (tone) => {
     switch (tone) {
@@ -329,6 +413,36 @@ export default function FlashcardMode({ initialDay = 1 }) {
             )}
           </div>
 
+          {/* Day Grammar Highlights */}
+          {dayGrammarPoints.length > 0 && (
+            <div className="p-4 rounded-2xl bg-indigo-50/80 border border-indigo-100 text-left space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-indigo-700 uppercase flex items-center gap-1.5">
+                  <BookOpen size={14} className="text-indigo-600" /> Tata Bahasa Hari Ini ({dayGrammarPoints.length} Poin)
+                </span>
+                <button
+                  onClick={() => setIsGrammarModalOpen(true)}
+                  className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 underline cursor-pointer"
+                >
+                  Lihat Detail & Audio
+                </button>
+              </div>
+              <div className="space-y-1.5">
+                {dayGrammarPoints.map(g => (
+                  <div key={g.id} className="text-xs text-slate-700 flex items-start gap-2 bg-white/80 p-2 rounded-xl border border-indigo-100/60 shadow-2xs">
+                    <span className="w-5 h-5 rounded-md bg-indigo-100 text-indigo-700 font-bold text-[10px] flex items-center justify-center shrink-0">
+                      {g.id}
+                    </span>
+                    <div className="min-w-0">
+                      <strong className="text-slate-900 block truncate">{g.title}</strong>
+                      <span className="font-mono text-indigo-700 text-[11px] font-semibold">{g.formula}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Action Buttons */}
           <div className="space-y-2.5 pt-2">
             {/* Action A: Ulas Kata Ragu-ragu & Belum Hafal */}
@@ -382,12 +496,22 @@ export default function FlashcardMode({ initialDay = 1 }) {
             // Keep stats fresh
           }}
         />
+
+        {/* Day Grammar Modal */}
+        <DayGrammarModal
+          isOpen={isGrammarModalOpen}
+          onClose={() => setIsGrammarModalOpen(false)}
+          day={selectedDay}
+          grammarPoints={dayGrammarPoints}
+          currentLevel={currentLevel}
+          audioSpeed={audioSpeed}
+        />
       </div>
     );
   }
 
   // EMPTY LIST FALLBACK
-  if (!currentWord) {
+  if (!currentItem) {
     return (
       <div className="card-subtle rounded-3xl p-8 sm:p-10 text-center max-w-md mx-auto my-12 space-y-3">
         {filterStatus === 'favorites' ? (
@@ -425,7 +549,7 @@ export default function FlashcardMode({ initialDay = 1 }) {
     );
   }
 
-  const currentStatus = wordStatus[currentWord.id] || 'unseen';
+  const currentStatus = currentWord ? (wordStatus[currentWord.id] || 'unseen') : 'grammar';
 
   return (
     <div className="max-w-xl mx-auto space-y-4 animate-fade-in pb-16 relative">
@@ -484,8 +608,19 @@ export default function FlashcardMode({ initialDay = 1 }) {
           ))}
         </div>
 
-        {/* Toggle Pills */}
+        {/* Toggle Pills & Grammar Button */}
         <div className="flex items-center gap-1 ml-auto">
+          {selectedDay !== 'all' && dayGrammarPoints.length > 0 && (
+            <button
+              onClick={() => setIsGrammarModalOpen(true)}
+              className="px-2.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200/80 transition-all cursor-pointer shadow-2xs whitespace-nowrap"
+              title="Buka Materi Tata Bahasa Hari Ini"
+            >
+              <BookOpen size={13} className="text-indigo-600" />
+              <span className="text-[11px] font-bold">Tata Bahasa ({dayGrammarPoints.length})</span>
+            </button>
+          )}
+
           {reviewSessionList && (
             <button
               onClick={() => { setReviewSessionList(null); setCurrentIndex(0); }}
@@ -534,28 +669,52 @@ export default function FlashcardMode({ initialDay = 1 }) {
       {/* Progress & Card Index */}
       <div className="flex items-center justify-between text-xs px-2 text-slate-400 font-medium">
         <div className="flex items-center gap-2">
-          <span>{currentIndex + 1} dari {activeWords.length} kata</span>
-          {reviewSessionList && (
-            <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-bold border border-amber-200">
-              Ulas Kata Ragu ({activeWords.length})
-            </span>
+          {isGrammarCard ? (
+            <div className="flex items-center gap-1.5">
+              <span className="font-bold text-indigo-600 flex items-center gap-1 text-xs">
+                <BookOpen size={13} /> Tata Bahasa #{currentItem.grammarIdx || 1} dari {currentItem.totalGrammar || 1}
+              </span>
+              <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-[10px] font-bold border border-indigo-100">
+                Pola Kalimat
+              </span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <span>Kartu {currentIndex + 1} dari {activeDeck.length}</span>
+              {reviewSessionList && (
+                <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-bold border border-amber-200">
+                  Ulas Kata Ragu ({activeDeck.length})
+                </span>
+              )}
+            </div>
           )}
         </div>
         <div className="flex items-center gap-2">
-          {currentStatus === 'mastered' && (
-            <span className="text-emerald-600 font-semibold flex items-center gap-1 text-[11px]">
-              ✓ Dikuasai
-            </span>
-          )}
-          {currentStatus === 'reviewing' && (
-            <span className="text-amber-600 font-semibold text-[11px]">
-              ! Perlu Diulang
-            </span>
-          )}
-          {currentStatus === 'unseen' && (
-            <span className="text-slate-400 text-[11px]">
-              Kata Baru
-            </span>
+          {isGrammarCard ? (
+            <button
+              onClick={() => setIsGrammarModalOpen(true)}
+              className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 px-2 py-0.5 rounded-md cursor-pointer border border-indigo-100 flex items-center gap-1"
+            >
+              <span>Detail Pola</span>
+            </button>
+          ) : (
+            <>
+              {currentStatus === 'mastered' && (
+                <span className="text-emerald-600 font-semibold flex items-center gap-1 text-[11px]">
+                  ✓ Dikuasai
+                </span>
+              )}
+              {currentStatus === 'reviewing' && (
+                <span className="text-amber-600 font-semibold text-[11px]">
+                  ! Perlu Diulang
+                </span>
+              )}
+              {currentStatus === 'unseen' && (
+                <span className="text-slate-400 text-[11px]">
+                  Kata Baru
+                </span>
+              )}
+            </>
           )}
 
           <button
@@ -568,180 +727,356 @@ export default function FlashcardMode({ initialDay = 1 }) {
         </div>
       </div>
 
-      {/* Modern Minimalist 3D Flashcard */}
-      <div 
-        onClick={() => setIsFlipped(f => !f)}
-        className="cursor-pointer select-none perspective-1000 min-h-[380px] w-full"
-      >
-        <div className={`relative w-full h-full min-h-[380px] transition-transform duration-500 transform-style-3d ${
-          isFlipped ? 'rotate-y-180' : ''
-        }`}>
-          {/* FRONT: PURE HANZI */}
-          <div className="absolute inset-0 bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-md shadow-slate-900/5 flex flex-col justify-between backface-hidden">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                {currentWord.cat} • Hari {currentWord.day}
-              </span>
-
-              <div className="flex items-center gap-1.5">
-                <button
-                  onClick={(e) => handleToggleFav(e, currentWord)}
-                  className={`w-9 h-9 rounded-full flex items-center justify-center transition-all shadow-2xs cursor-pointer ${
-                    isFavorite(currentWord.id)
-                      ? 'bg-amber-50 text-amber-500 hover:bg-amber-100 ring-1 ring-amber-300'
-                      : 'bg-slate-50 hover:bg-amber-50 text-slate-400 hover:text-amber-500'
-                  }`}
-                  title={isFavorite(currentWord.id) ? 'Hapus dari Favorit (F)' : 'Tambah ke Favorit (F)'}
-                >
-                  <Star 
-                    size={17} 
-                    className={`transition-transform active:scale-125 ${
-                      isFavorite(currentWord.id) ? 'fill-amber-400 text-amber-500 scale-110' : ''
-                    }`} 
-                  />
-                </button>
-
-                <button
-                  onClick={(e) => handlePlayAudio(e, currentWord.hanzi)}
-                  className="w-9 h-9 rounded-full bg-slate-50 hover:bg-rose-50 text-slate-600 hover:text-rose-600 flex items-center justify-center transition-colors shadow-2xs cursor-pointer"
-                  title="Dengarkan Pengucapan"
-                >
-                  <Volume2 size={17} />
-                </button>
-              </div>
-            </div>
-
-            {/* Main Character */}
-            <div className="text-center my-auto py-4">
-              <div className="text-7xl sm:text-8xl font-black text-slate-900 font-hanzi tracking-wide mb-2">
-                {currentWord.hanzi}
-              </div>
-
-              {!hidePinyinInitially && (
-                <div className="text-xl font-bold text-rose-500 font-mono tracking-wider">
-                  {currentWord.pinyin}
+      {/* Modern 3D Flashcard - Grammar Card OR Vocab Card */}
+      {isGrammarCard ? (
+        <div 
+          onClick={() => setIsFlipped(f => !f)}
+          className="cursor-pointer select-none perspective-1000 min-h-[380px] w-full"
+        >
+          <div className={`relative w-full h-full min-h-[380px] transition-transform duration-500 transform-style-3d ${
+            isFlipped ? 'rotate-y-180' : ''
+          }`}>
+            {/* FRONT OF GRAMMAR CARD: Title, Formula, Explanation */}
+            <div className="absolute inset-0 bg-white rounded-3xl p-6 sm:p-8 border-2 border-indigo-200/90 shadow-md shadow-indigo-900/5 flex flex-col justify-between backface-hidden">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700 uppercase tracking-wider">
+                    {currentGrammar.category || 'Tata Bahasa'}
+                  </span>
+                  <span className="text-[11px] font-semibold text-slate-400">
+                    Hari {selectedDay}
+                  </span>
                 </div>
-              )}
-            </div>
 
-            {/* Hint Footer */}
-            <div className="text-center text-[11px] text-slate-400 flex items-center justify-center gap-1 pt-2">
-              <RotateCw size={12} />
-              <span>Ketuk untuk melihat arti & pinyin</span>
-            </div>
-          </div>
-
-          {/* BACK: MEANING & CONTEXT */}
-          <div className="absolute inset-0 bg-white rounded-3xl p-6 sm:p-8 border border-rose-200/90 shadow-md shadow-slate-900/5 flex flex-col justify-between backface-hidden rotate-y-180">
-            <div className="flex items-center justify-between">
-              <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full ${getTonePillClass(currentWord.tone)}`}>
-                Nada {currentWord.tone}
-              </span>
-
-              <div className="flex items-center gap-1.5">
-                <button
-                  onClick={(e) => handleToggleFav(e, currentWord)}
-                  className={`w-9 h-9 rounded-full flex items-center justify-center transition-all shadow-2xs cursor-pointer ${
-                    isFavorite(currentWord.id)
-                      ? 'bg-amber-50 text-amber-500 hover:bg-amber-100 ring-1 ring-amber-300'
-                      : 'bg-slate-50 hover:bg-amber-50 text-slate-400 hover:text-amber-500'
-                  }`}
-                  title={isFavorite(currentWord.id) ? 'Hapus dari Favorit (F)' : 'Tambah ke Favorit (F)'}
-                >
-                  <Star 
-                    size={17} 
-                    className={`transition-transform active:scale-125 ${
-                      isFavorite(currentWord.id) ? 'fill-amber-400 text-amber-500 scale-110' : ''
-                    }`} 
-                  />
-                </button>
-
-                <button
-                  onClick={(e) => handlePlayAudio(e, currentWord.hanzi)}
-                  className="w-9 h-9 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center transition-colors shadow-2xs cursor-pointer"
-                  title="Dengarkan Pengucapan"
-                >
-                  <Volume2 size={17} />
-                </button>
-              </div>
-            </div>
-
-            {/* Content Details */}
-            <div className="my-auto space-y-3 py-1">
-              <div className="text-center">
-                <span className="text-3xl font-black text-slate-900 font-hanzi mr-2">
-                  {currentWord.hanzi}
-                </span>
-                <span className="text-2xl font-bold text-rose-500 font-mono">
-                  {currentWord.pinyin}
-                </span>
-                <h3 className="text-lg font-bold text-slate-900 mt-0.5">
-                  {currentWord.arti}
-                </h3>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (currentGrammar.contoh?.[0]?.hz) {
+                        speakChinese(currentGrammar.contoh[0].hz, audioSpeed);
+                      }
+                    }}
+                    className="w-9 h-9 rounded-full bg-indigo-50 hover:bg-indigo-100 text-indigo-600 flex items-center justify-center transition-colors shadow-2xs cursor-pointer"
+                    title="Dengarkan Contoh Audio"
+                  >
+                    <Volume2 size={17} />
+                  </button>
+                </div>
               </div>
 
-              {/* Example sentence */}
-              {currentWord.contoh && (
-                <div 
-                  onClick={(e) => handlePlayAudio(e, currentWord.contoh)}
-                  className="bg-slate-50 hover:bg-rose-50/50 border border-slate-100 rounded-2xl p-3 transition-colors cursor-pointer text-left"
-                >
-                  <div className="flex items-center justify-between text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">
-                    <span>Contoh Kalimat:</span>
-                    <Volume2 size={12} className="text-rose-500" />
+              {/* Main Grammar Body */}
+              <div className="text-center my-auto py-2 space-y-4">
+                <div className="space-y-1">
+                  <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">
+                    Materi Tata Bahasa HSK {currentLevel}
+                  </span>
+                  <h3 className="text-xl sm:text-2xl font-black text-slate-900">
+                    {currentGrammar.title}
+                  </h3>
+                </div>
+
+                {/* Formula Box */}
+                {currentGrammar.formula && (
+                  <div className="max-w-md mx-auto p-4 rounded-2xl bg-indigo-50/70 border border-indigo-200/80 shadow-2xs space-y-1 text-left">
+                    <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider block">
+                      Rumus Pola:
+                    </span>
+                    <p className="font-mono text-sm sm:text-base font-bold text-slate-900 break-words">
+                      {currentGrammar.formula}
+                    </p>
                   </div>
-                  <p className="text-sm font-bold text-slate-900 font-hanzi">{currentWord.contoh}</p>
-                  <p className="text-xs font-mono text-rose-500">{currentWord.contohPinyin}</p>
-                  <p className="text-xs text-slate-500 italic mt-0.5">{currentWord.contohArti}</p>
-                </div>
-              )}
+                )}
 
-              {/* Memory tip */}
-              {currentWord.tips && (
-                <div className="bg-amber-50/70 border border-amber-200/50 rounded-2xl p-2.5 text-xs text-amber-900 flex items-start gap-1.5 text-left">
-                  <Lightbulb size={14} className="text-amber-600 shrink-0 mt-0.5" />
-                  <p className="text-[11px] leading-relaxed">
-                    <strong>Trik Ingat:</strong> {currentWord.tips}
-                  </p>
-                </div>
-              )}
+                <p className="text-xs sm:text-sm text-slate-600 max-w-md mx-auto leading-relaxed">
+                  {currentGrammar.desc}
+                </p>
+              </div>
+
+              {/* Hint Footer */}
+              <div className="text-center text-[11px] text-indigo-500 font-semibold flex items-center justify-center gap-1 pt-2">
+                <RotateCw size={12} />
+                <span>Ketuk kartu untuk melihat contoh kalimat & audio ➔</span>
+              </div>
             </div>
 
-            {/* Hint Footer */}
-            <div className="text-center text-[11px] text-slate-400 flex items-center justify-center gap-1 pt-2">
-              <RotateCw size={12} />
-              <span>Ketuk untuk membalik kembali</span>
+            {/* BACK OF GRAMMAR CARD: Interactive Example Sentences with Audio + Tips */}
+            <div className="absolute inset-0 bg-white rounded-3xl p-6 sm:p-8 border-2 border-indigo-300/90 shadow-md shadow-indigo-900/5 flex flex-col justify-between backface-hidden rotate-y-180 overflow-y-auto">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700">
+                  Contoh & Tips Pemakaian
+                </span>
+                <span className="text-[11px] font-mono text-slate-400">
+                  Poin #{currentGrammar.id}
+                </span>
+              </div>
+
+              {/* Examples List */}
+              <div className="my-auto space-y-2.5 py-2">
+                {currentGrammar.contoh && currentGrammar.contoh.length > 0 && (
+                  <div className="space-y-2">
+                    {currentGrammar.contoh.map((ex, exIdx) => (
+                      <div
+                        key={exIdx}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          speakChinese(ex.hz, audioSpeed);
+                        }}
+                        className="bg-slate-50 hover:bg-indigo-50/50 border border-slate-200/70 rounded-2xl p-2.5 transition-colors cursor-pointer text-left flex items-start justify-between gap-2"
+                      >
+                        <div className="space-y-0.5">
+                          <p className="text-sm font-bold font-hanzi text-slate-900">{ex.hz}</p>
+                          <p className="text-xs font-mono text-rose-500 font-semibold">{ex.py}</p>
+                          <p className="text-xs text-slate-500 italic">{ex.id}</p>
+                        </div>
+                        <button
+                          type="button"
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-100 transition-colors shrink-0"
+                          title="Dengarkan Audio"
+                        >
+                          <Volume2 size={16} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Practical Tip */}
+                {currentGrammar.tips && (
+                  <div className="bg-amber-50/80 border border-amber-200/60 rounded-2xl p-2 text-xs text-amber-900 flex items-start gap-1.5 text-left">
+                    <Lightbulb size={14} className="text-amber-600 shrink-0 mt-0.5" />
+                    <p className="text-[11px] leading-relaxed">
+                      <strong>Trik Ingat:</strong> {currentGrammar.tips}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Hint Footer */}
+              <div className="text-center text-[11px] text-slate-400 flex items-center justify-center gap-1 pt-2">
+                <RotateCw size={12} />
+                <span>Ketuk untuk kembali ke rumus pola</span>
+              </div>
             </div>
           </div>
         </div>
-      </div>
-
-      {/* Clean Apple-style Rating Buttons */}
-      <div className="grid grid-cols-3 gap-2.5 pt-1">
-        <button
-          onClick={() => handleRate('reviewing')}
-          className="py-3 px-2 bg-slate-100 hover:bg-rose-50 active:scale-95 text-slate-600 hover:text-rose-600 rounded-2xl font-bold text-xs transition-all flex items-center justify-center gap-1 cursor-pointer"
+      ) : (
+        /* Regular Word Flashcard */
+        <div 
+          onClick={() => setIsFlipped(f => !f)}
+          className="cursor-pointer select-none perspective-1000 min-h-[380px] w-full"
         >
-          <X size={15} />
-          <span>Belum Ingat</span>
-        </button>
+          <div className={`relative w-full h-full min-h-[380px] transition-transform duration-500 transform-style-3d ${
+            isFlipped ? 'rotate-y-180' : ''
+          }`}>
+            {/* FRONT: PURE HANZI */}
+            <div className="absolute inset-0 bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-md shadow-slate-900/5 flex flex-col justify-between backface-hidden">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                  {currentWord.cat} • Hari {currentWord.day}
+                </span>
 
-        <button
-          onClick={() => handleRate('reviewing')}
-          className="py-3 px-2 bg-slate-100 hover:bg-amber-50 active:scale-95 text-slate-600 hover:text-amber-700 rounded-2xl font-bold text-xs transition-all flex items-center justify-center gap-1 cursor-pointer"
-        >
-          <AlertCircle size={15} />
-          <span>Ragu-ragu</span>
-        </button>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={(e) => handleToggleFav(e, currentWord)}
+                    className={`w-9 h-9 rounded-full flex items-center justify-center transition-all shadow-2xs cursor-pointer ${
+                      isFavorite(currentWord.id)
+                        ? 'bg-amber-50 text-amber-500 hover:bg-amber-100 ring-1 ring-amber-300'
+                        : 'bg-slate-50 hover:bg-amber-50 text-slate-400 hover:text-amber-500'
+                    }`}
+                    title={isFavorite(currentWord.id) ? 'Hapus dari Favorit (F)' : 'Tambah ke Favorit (F)'}
+                  >
+                    <Star 
+                      size={17} 
+                      className={`transition-transform active:scale-125 ${
+                        isFavorite(currentWord.id) ? 'fill-amber-400 text-amber-500 scale-110' : ''
+                      }`} 
+                    />
+                  </button>
 
-        <button
-          onClick={() => handleRate('mastered')}
-          className="py-3 px-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white rounded-2xl font-bold text-xs transition-all shadow-sm flex items-center justify-center gap-1 cursor-pointer"
-        >
-          <Check size={15} />
-          <span>Sudah Kuasai</span>
-        </button>
-      </div>
+                  <button
+                    onClick={(e) => handlePlayAudio(e, currentWord.hanzi)}
+                    className="w-9 h-9 rounded-full bg-slate-50 hover:bg-rose-50 text-slate-600 hover:text-rose-600 flex items-center justify-center transition-colors shadow-2xs cursor-pointer"
+                    title="Dengarkan Pengucapan"
+                  >
+                    <Volume2 size={17} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Main Character */}
+              <div className="text-center my-auto py-4">
+                <div className="text-7xl sm:text-8xl font-black text-slate-900 font-hanzi tracking-wide mb-2">
+                  {currentWord.hanzi}
+                </div>
+
+                {!hidePinyinInitially && (
+                  <div className="text-xl font-bold text-rose-500 font-mono tracking-wider">
+                    {currentWord.pinyin}
+                  </div>
+                )}
+              </div>
+
+              {/* Hint Footer */}
+              <div className="text-center text-[11px] text-slate-400 flex items-center justify-center gap-1 pt-2">
+                <RotateCw size={12} />
+                <span>Ketuk untuk melihat arti & pinyin</span>
+              </div>
+            </div>
+
+            {/* BACK: MEANING & CONTEXT */}
+            <div className="absolute inset-0 bg-white rounded-3xl p-6 sm:p-8 border border-rose-200/90 shadow-md shadow-slate-900/5 flex flex-col justify-between backface-hidden rotate-y-180">
+              <div className="flex items-center justify-between">
+                <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full ${getTonePillClass(currentWord.tone)}`}>
+                  Nada {currentWord.tone}
+                </span>
+
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={(e) => handleToggleFav(e, currentWord)}
+                    className={`w-9 h-9 rounded-full flex items-center justify-center transition-all shadow-2xs cursor-pointer ${
+                      isFavorite(currentWord.id)
+                        ? 'bg-amber-50 text-amber-500 hover:bg-amber-100 ring-1 ring-amber-300'
+                        : 'bg-slate-50 hover:bg-amber-50 text-slate-400 hover:text-amber-500'
+                    }`}
+                    title={isFavorite(currentWord.id) ? 'Hapus dari Favorit (F)' : 'Tambah ke Favorit (F)'}
+                  >
+                    <Star 
+                      size={17} 
+                      className={`transition-transform active:scale-125 ${
+                        isFavorite(currentWord.id) ? 'fill-amber-400 text-amber-500 scale-110' : ''
+                      }`} 
+                    />
+                  </button>
+
+                  <button
+                    onClick={(e) => handlePlayAudio(e, currentWord.hanzi)}
+                    className="w-9 h-9 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center transition-colors shadow-2xs cursor-pointer"
+                    title="Dengarkan Pengucapan"
+                  >
+                    <Volume2 size={17} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Content Details */}
+              <div className="my-auto space-y-3 py-1">
+                <div className="text-center">
+                  <span className="text-3xl font-black text-slate-900 font-hanzi mr-2">
+                    {currentWord.hanzi}
+                  </span>
+                  <span className="text-2xl font-bold text-rose-500 font-mono">
+                    {currentWord.pinyin}
+                  </span>
+                  <h3 className="text-lg font-bold text-slate-900 mt-0.5">
+                    {currentWord.arti}
+                  </h3>
+                </div>
+
+                {/* Example sentence */}
+                {currentWord.contoh && (
+                  <div 
+                    onClick={(e) => handlePlayAudio(e, currentWord.contoh)}
+                    className="bg-slate-50 hover:bg-rose-50/50 border border-slate-100 rounded-2xl p-3 transition-colors cursor-pointer text-left"
+                  >
+                    <div className="flex items-center justify-between text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">
+                      <span>Contoh Kalimat:</span>
+                      <Volume2 size={12} className="text-rose-500" />
+                    </div>
+                    <p className="text-sm font-bold text-slate-900 font-hanzi">{currentWord.contoh}</p>
+                    <p className="text-xs font-mono text-rose-500">{currentWord.contohPinyin}</p>
+                    <p className="text-xs text-slate-500 italic mt-0.5">{currentWord.contohArti}</p>
+                  </div>
+                )}
+
+                {/* Memory tip */}
+                {currentWord.tips && (
+                  <div className="bg-amber-50/70 border border-amber-200/50 rounded-2xl p-2.5 text-xs text-amber-900 flex items-start gap-1.5 text-left">
+                    <Lightbulb size={14} className="text-amber-600 shrink-0 mt-0.5" />
+                    <p className="text-[11px] leading-relaxed">
+                      <strong>Trik Ingat:</strong> {currentWord.tips}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Hint Footer */}
+              <div className="text-center text-[11px] text-slate-400 flex items-center justify-center gap-1 pt-2">
+                <RotateCw size={12} />
+                <span>Ketuk untuk membalik kembali</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Action Buttons: Grammar Card vs Word Card */}
+      {isGrammarCard ? (
+        <div className="grid grid-cols-3 gap-2.5 pt-1">
+          <button
+            onClick={() => setIsGrammarModalOpen(true)}
+            className="py-3 px-2 bg-slate-100 hover:bg-indigo-50 active:scale-95 text-slate-600 hover:text-indigo-700 rounded-2xl font-bold text-xs transition-all flex items-center justify-center gap-1 cursor-pointer"
+          >
+            <BookOpen size={15} />
+            <span>Lihat Semua</span>
+          </button>
+
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              if (currentGrammar.contoh?.[0]?.hz) {
+                speakChinese(currentGrammar.contoh[0].hz, audioSpeed);
+              }
+            }}
+            className="py-3 px-2 bg-indigo-50 hover:bg-indigo-100 active:scale-95 text-indigo-700 rounded-2xl font-bold text-xs transition-all flex items-center justify-center gap-1 cursor-pointer"
+          >
+            <Volume2 size={15} />
+            <span>Putar Audio</span>
+          </button>
+
+          <button
+            onClick={() => {
+              confetti({
+                particleCount: 20,
+                spread: 40,
+                origin: { y: 0.8 },
+                colors: ['#6366f1', '#10b981', '#f59e0b']
+              });
+              handleNext();
+            }}
+            className="py-3 px-2 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white rounded-2xl font-bold text-xs transition-all shadow-sm flex items-center justify-center gap-1 cursor-pointer"
+          >
+            <span>Paham & Lanjut</span>
+            <ArrowRight size={15} />
+          </button>
+        </div>
+      ) : (
+        /* Clean Apple-style Rating Buttons for Words */
+        <div className="grid grid-cols-3 gap-2.5 pt-1">
+          <button
+            onClick={() => handleRate('reviewing')}
+            className="py-3 px-2 bg-slate-100 hover:bg-rose-50 active:scale-95 text-slate-600 hover:text-rose-600 rounded-2xl font-bold text-xs transition-all flex items-center justify-center gap-1 cursor-pointer"
+          >
+            <X size={15} />
+            <span>Belum Ingat</span>
+          </button>
+
+          <button
+            onClick={() => handleRate('reviewing')}
+            className="py-3 px-2 bg-slate-100 hover:bg-amber-50 active:scale-95 text-slate-600 hover:text-amber-700 rounded-2xl font-bold text-xs transition-all flex items-center justify-center gap-1 cursor-pointer"
+          >
+            <AlertCircle size={15} />
+            <span>Ragu-ragu</span>
+          </button>
+
+          <button
+            onClick={() => handleRate('mastered')}
+            className="py-3 px-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white rounded-2xl font-bold text-xs transition-all shadow-sm flex items-center justify-center gap-1 cursor-pointer"
+          >
+            <Check size={15} />
+            <span>Sudah Kuasai</span>
+          </button>
+        </div>
+      )}
 
       {/* Prev / Next Nav */}
       <div className="flex items-center justify-between px-1 pt-1">
@@ -757,7 +1092,7 @@ export default function FlashcardMode({ initialDay = 1 }) {
           onClick={handleNext}
           className="text-xs font-semibold text-slate-400 hover:text-slate-800 flex items-center gap-1 cursor-pointer"
         >
-          <span>{currentIndex === filteredWords.length - 1 ? 'Selesai & Evaluasi' : 'Berikutnya'}</span>
+          <span>{currentIndex === activeDeck.length - 1 ? 'Selesai & Evaluasi' : 'Berikutnya'}</span>
           <ChevronRight size={15} />
         </button>
       </div>
@@ -768,6 +1103,16 @@ export default function FlashcardMode({ initialDay = 1 }) {
         onClose={() => setIsHanziQuizOpen(false)}
         day={selectedDay}
         dayWords={currentSessionBatch}
+      />
+
+      {/* Day Grammar Modal */}
+      <DayGrammarModal
+        isOpen={isGrammarModalOpen}
+        onClose={() => setIsGrammarModalOpen(false)}
+        day={selectedDay}
+        grammarPoints={dayGrammarPoints}
+        currentLevel={currentLevel}
+        audioSpeed={audioSpeed}
       />
     </div>
   );

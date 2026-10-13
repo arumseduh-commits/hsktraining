@@ -4,6 +4,7 @@ import { HSK2_WORDS } from '../data/hsk2Words';
 import { loadLevelVocabulary, preCacheAllLevels } from '../services/vocabLoader';
 import { getSupabase } from '../services/supabaseClient';
 import { fetchRemoteProgress, pushRemoteProgress, mergeLearningProgress } from '../services/cloudSync';
+import { getGrammarByLevel } from '../data/grammarPoints';
 
 const LearningContext = createContext();
 
@@ -155,12 +156,13 @@ export function LearningProvider({ children }) {
     }
   });
 
-  // Dynamic Days Configuration based on user's chosen dailyTarget
+  // Dynamic Days Configuration based on user's chosen dailyTarget & Integrated Grammar Clusters
   const daysConfig = useMemo(() => {
     if (!rawWords || rawWords.length === 0) return [];
     const target = Math.max(1, dailyTarget || 15);
     const total = rawWords.length;
     const totalDays = Math.ceil(total / target);
+    const grammarList = getGrammarByLevel(currentLevel) || [];
 
     const gradientPalette = [
       "from-rose-500 to-red-600",
@@ -196,19 +198,38 @@ export function LearningProvider({ children }) {
         }
       }
 
+      // Proportional grammar mapping: distribute all grammar points across the syllabus days
+      const grammarStartIdx = Math.floor(((d - 1) * grammarList.length) / totalDays);
+      const grammarEndIdx = Math.min(
+        grammarList.length,
+        Math.max(grammarStartIdx + 1, Math.floor((d * grammarList.length) / totalDays))
+      );
+      const dayGrammarPoints = grammarList.slice(grammarStartIdx, grammarEndIdx);
+
       const colorIndex = (d - 1) % gradientPalette.length;
       const iconIndex = (d - 1) % iconPalette.length;
 
+      const mainGrammar = dayGrammarPoints[0];
+      const grammarCleanTitle = mainGrammar ? mainGrammar.title.replace(/^\d+\.\s*/, '') : '';
+      const displayTitle = grammarCleanTitle 
+        ? `Hari ${d}: ${grammarCleanTitle}`
+        : `Hari ${d}: Kosakata ${start} – ${end}`;
+
       result.push({
         day: d,
-        title: `Hari ${d}: Kosakata ${start} – ${end}`,
+        title: displayTitle,
         targetWords: `${start} - ${end}`,
         count: slice.length,
         startIdx: start,
         endIdx: end,
         dominantCategory: topCat,
-        badge: topCat,
-        desc: `Kuasai ${slice.length} kata dengan fokus kategori ${topCat}, Active Recall, dan audio refleks.`,
+        badge: mainGrammar ? mainGrammar.category : topCat,
+        grammarPoints: dayGrammarPoints,
+        grammarTitle: dayGrammarPoints.map(g => g.title.replace(/^\d+\.\s*/, '')).join(' & '),
+        grammarFormula: mainGrammar?.formula || '',
+        desc: dayGrammarPoints.length > 0 
+          ? `Kuasai ${slice.length} kosakata tematik bersama tata bahasa "${dayGrammarPoints.map(g => g.title.replace(/^\d+\.\s*/, '')).join(' & ')}".`
+          : `Kuasai ${slice.length} kata dengan fokus kategori ${topCat}, Active Recall, dan audio refleks.`,
         color: gradientPalette[colorIndex],
         icon: iconPalette[iconIndex]
       });
@@ -216,15 +237,37 @@ export function LearningProvider({ children }) {
     return result;
   }, [rawWords, dailyTarget, currentLevel]);
 
-  // Words with dynamic day assignment according to dailyTarget
+  // Words with dynamic day assignment and attached grammar cluster context
   const words = useMemo(() => {
     if (!rawWords) return [];
     const target = Math.max(1, dailyTarget || 15);
-    return rawWords.map((w, idx) => ({
-      ...w,
-      day: Math.floor(idx / target) + 1
-    }));
-  }, [rawWords, dailyTarget]);
+    const grammarList = getGrammarByLevel(currentLevel) || [];
+    const totalDays = Math.ceil(rawWords.length / target);
+
+    return rawWords.map((w, idx) => {
+      const day = Math.floor(idx / target) + 1;
+      const grammarStartIdx = Math.floor(((day - 1) * grammarList.length) / totalDays);
+      const grammarEndIdx = Math.min(
+        grammarList.length,
+        Math.max(grammarStartIdx + 1, Math.floor((day * grammarList.length) / totalDays))
+      );
+      const dayGrammarPoints = grammarList.slice(grammarStartIdx, grammarEndIdx);
+
+      return {
+        ...w,
+        day,
+        dayGrammarPoints,
+        dayGrammarFocus: dayGrammarPoints[0]?.title || ''
+      };
+    });
+  }, [rawWords, dailyTarget, currentLevel]);
+
+  // Retrieve grammar points for a specific day
+  const getDayGrammar = useCallback((dayNum) => {
+    if (!dayNum || dayNum === 'all') return [];
+    const dayCfg = daysConfig.find(d => d.day === Number(dayNum));
+    return dayCfg?.grammarPoints || [];
+  }, [daysConfig]);
 
   const [dailyLog, setDailyLog] = useState(() => {
     try {
@@ -1030,6 +1073,7 @@ export function LearningProvider({ children }) {
         totalReviewing,
         totalLearning,
         getDayStats,
+        getDayGrammar,
         // Periodic & Final Assessment exports
         periodicAssessments,
         finalAssessment,
