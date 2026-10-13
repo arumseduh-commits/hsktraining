@@ -24,7 +24,7 @@ import {
 import confetti from 'canvas-confetti';
 import { generateOfficialExam } from '../data/officialExamBank';
 import { HSK1_PACKAGES_METADATA, getOfficialExamPackage } from '../data/hsk1OfficialExamPackages';
-import { speakChinese } from '../utils/speech';
+import { speakChinese, stopChineseSpeech } from '../utils/speech';
 import { useLearning } from '../context/LearningContext';
 import OfficialCertificateModal from './OfficialCertificateModal';
 
@@ -52,19 +52,40 @@ export default function OfficialExamView() {
   const [isEditingName, setIsEditingName] = useState(false);
   const [tempName, setTempName] = useState(candidateName);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  const [activeSpeakerTurn, setActiveSpeakerTurn] = useState(null);
 
   const timerRef = useRef(null);
 
-  // Reset audio state on question change
+  // Reset audio state and stop playback on question change or unmount
   useEffect(() => {
     setIsPlayingAudio(false);
+    setActiveSpeakerTurn(null);
+    stopChineseSpeech();
+    return () => {
+      stopChineseSpeech();
+    };
   }, [currentIndex]);
 
   const handlePlayAudio = (text) => {
-    setIsPlayingAudio(true);
-    speakChinese(text, audioSpeed, () => {
+    if (isPlayingAudio) {
+      stopChineseSpeech();
       setIsPlayingAudio(false);
-    });
+      setActiveSpeakerTurn(null);
+      return;
+    }
+
+    setIsPlayingAudio(true);
+    speakChinese(
+      text, 
+      audioSpeed, 
+      () => {
+        setIsPlayingAudio(false);
+        setActiveSpeakerTurn(null);
+      },
+      (turn) => {
+        setActiveSpeakerTurn(turn);
+      }
+    );
   };
 
   // Start official exam session (11 Official CTI Packages or Adaptive Bank)
@@ -504,28 +525,43 @@ export default function OfficialExamView() {
 
           {/* Question Body */}
           <div className="space-y-4">
-            {/* Audio Button per question (Voice / Speech fallback) */}
+            {/* Audio Button per question (Humanized Neural Voice) */}
             {currentQ.audioText && (
-              <div className="bg-rose-50/40 border border-rose-100 rounded-2xl p-4 text-center space-y-2">
+              <div className="bg-rose-50/40 border border-rose-100 rounded-2xl p-4 text-center space-y-2.5">
                 <button
                   onClick={() => handlePlayAudio(currentQ.audioText)}
-                  className={`w-14 h-14 rounded-full text-white mx-auto flex items-center justify-center shadow-sm active:scale-95 transition-all ${
+                  className={`w-14 h-14 rounded-full text-white mx-auto flex items-center justify-center shadow-sm active:scale-95 transition-all cursor-pointer ${
                     isPlayingAudio
                       ? 'bg-rose-600 ring-4 ring-rose-200 animate-pulse'
                       : 'bg-rose-500 hover:bg-rose-600 shadow-rose-500/20'
                   }`}
-                  title="Dengarkan Suara Soal Ini"
+                  title={isPlayingAudio ? "Klik untuk menghentikan audio" : "Dengarkan audio Mandarin alami"}
                 >
                   <Volume2 size={24} className={isPlayingAudio ? 'scale-110' : ''} />
                 </button>
-                <p className={`text-[11px] font-medium transition-colors ${isPlayingAudio ? 'text-rose-600 font-bold' : 'text-slate-400'}`}>
-                  {isPlayingAudio ? 'Sedang Memutar Audio...' : 'Putar suara Mandarin soal ini (zh-CN)'}
-                </p>
-                {currentQ.dialogSnippet && (
-                  <div className="text-[11px] text-slate-500 bg-white/90 py-1 px-3 rounded-lg inline-block border border-rose-100 font-medium">
-                    🗣️ Percakapan 2 Pembicara
+
+                <div className="space-y-1.5">
+                  <div className="flex flex-wrap items-center justify-center gap-1.5">
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-700">
+                      ✨ Suara Human AI (Studio Alami)
+                    </span>
+                    {currentQ.dialogSnippet && (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
+                        🗣️ Dialog 2 Penutur
+                      </span>
+                    )}
                   </div>
-                )}
+
+                  {activeSpeakerTurn ? (
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-600 text-white text-xs font-bold shadow-xs animate-pulse">
+                      <span>🗣️ Sedang Berbicara: {activeSpeakerTurn.roleLabel || 'Penutur'}</span>
+                    </div>
+                  ) : (
+                    <p className={`text-[11px] font-medium transition-colors ${isPlayingAudio ? 'text-rose-600 font-bold' : 'text-slate-500'}`}>
+                      {isPlayingAudio ? 'Sedang memutar percakapan alami...' : 'Klik tombol di atas untuk menyimak audio standar penutur asli'}
+                    </p>
+                  )}
+                </div>
               </div>
             )}
 
