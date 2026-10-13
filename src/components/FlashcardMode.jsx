@@ -26,7 +26,7 @@ import { useLearning } from '../context/LearningContext';
 import { speakChinese } from '../utils/speech';
 import DayHanziQuizModal from './DayHanziQuizModal';
 import DayGrammarModal from './DayGrammarModal';
-import { getHanziBreakdown } from '../data/hanziBreakdown';
+import { getHanziBreakdown, getWordBreakdownInfo } from '../data/hanziBreakdown';
 
 export default function FlashcardMode({ initialDay = 1 }) {
   const navigate = useNavigate();
@@ -1006,35 +1006,79 @@ export default function FlashcardMode({ initialDay = 1 }) {
                   </div>
                 )}
 
-                {/* Bedah Karakter & Radikal Masing-masing Hanzi */}
+                {/* Bedah Karakter, Radikal & Arti Per Kata */}
                 {currentWord.hanzi && (
                   (() => {
-                    const breakdown = getHanziBreakdown(currentWord.hanzi);
-                    if (!breakdown || breakdown.length === 0) return null;
+                    const wordInfo = getWordBreakdownInfo(currentWord);
+                    if (!wordInfo || !wordInfo.chars || wordInfo.chars.length === 0) return null;
                     return (
-                      <div className="bg-indigo-50/70 border border-indigo-100/90 rounded-2xl p-3 text-left space-y-2">
-                        <div className="flex items-center gap-1.5 text-[10px] font-bold text-indigo-700 uppercase tracking-wider">
-                          <Sparkles size={12} className="text-indigo-600 shrink-0" />
-                          <span>Bedah Karakter & Radikal ({breakdown.length} Hanzi):</span>
+                      <div className="bg-indigo-50/70 border border-indigo-100/90 rounded-2xl p-3 text-left space-y-2.5">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5 text-[10px] font-bold text-indigo-700 uppercase tracking-wider">
+                            <Sparkles size={12} className="text-indigo-600 shrink-0" />
+                            <span>Bedah Karakter & Radikal ({wordInfo.chars.length} Hanzi):</span>
+                          </div>
+                          {wordInfo.isCompound && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200/60">
+                              Kata Majemuk
+                            </span>
+                          )}
                         </div>
 
-                        <div className="space-y-1.5">
-                          {breakdown.map((item, bIdx) => (
-                            <div key={bIdx} className="bg-white/95 rounded-xl p-2.5 border border-indigo-100/80 shadow-2xs space-y-1">
-                              <div className="flex items-center justify-between flex-wrap gap-1">
-                                <div className="flex items-baseline gap-1.5">
-                                  <span className="text-xl font-black font-hanzi text-slate-900">{item.char}</span>
+                        {/* Rumus Dekomposisi Arti Per Kata (khusus kata majemuk / multikarakter) */}
+                        {wordInfo.isCompound && wordInfo.formula && (
+                          <div className="p-2.5 rounded-xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/80 text-xs text-amber-950 flex items-start gap-2 shadow-2xs">
+                            <span className="font-black text-amber-600 shrink-0 text-sm">🧩</span>
+                            <div className="min-w-0">
+                              <span className="text-[10px] font-bold text-amber-700 block uppercase tracking-wide">
+                                Gabungan Arti Per Kata:
+                              </span>
+                              <span className="font-bold text-xs text-slate-900 leading-snug">
+                                {wordInfo.formula}
+                              </span>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Rincian Masing-masing Karakter */}
+                        <div className="space-y-2">
+                          {wordInfo.chars.map((item, bIdx) => (
+                            <div key={bIdx} className="bg-white/95 rounded-xl p-2.5 border border-indigo-100/90 shadow-2xs space-y-1.5">
+                              {/* Header Karakter: Hanzi, Pinyin, Audio, dan Radikal */}
+                              <div className="flex items-center justify-between flex-wrap gap-1.5">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-2xl font-black font-hanzi text-slate-900 leading-none">{item.char}</span>
                                   {item.pinyin && (
-                                    <span className="text-xs font-mono font-bold text-rose-500">{item.pinyin}</span>
+                                    <span className="text-xs font-mono font-bold text-rose-500 bg-rose-50 px-1.5 py-0.5 rounded">
+                                      {item.pinyin}
+                                    </span>
                                   )}
-                                  <span className="text-xs font-semibold text-slate-700">• {item.meaning}</span>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      speakChinese(item.char, audioSpeed);
+                                    }}
+                                    className="p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                                    title={`Putar audio untuk ${item.char}`}
+                                  >
+                                    <Volume2 size={13} />
+                                  </button>
                                 </div>
-                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-800">
+
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-indigo-100/90 text-indigo-900 border border-indigo-200/60">
                                   Radikal: <strong className="font-hanzi font-black text-indigo-950">{item.radical}</strong> ({item.radicalMeaning})
                                 </span>
                               </div>
+
+                              {/* Arti Kata Karakter Ini (Prominen & Jelas!) */}
+                              <div className="flex items-baseline gap-1.5 text-xs bg-slate-50/90 rounded-lg px-2.5 py-1.5 border border-slate-100">
+                                <span className="text-[10px] font-bold text-slate-500 uppercase shrink-0">Arti Kata:</span>
+                                <span className="font-bold text-slate-800">{item.meaning}</span>
+                              </div>
+
+                              {/* Penjelasan Logika / Etimologi */}
                               {item.explanation && (
-                                <p className="text-[11px] text-slate-600 leading-tight italic">
+                                <p className="text-[11px] text-slate-600 leading-relaxed italic pl-1.5 border-l-2 border-indigo-200">
                                   💡 {item.explanation}
                                 </p>
                               )}
