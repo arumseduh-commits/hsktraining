@@ -69,10 +69,6 @@ export default function OfficialExamView() {
 
   // Start official exam session (11 Official CTI Packages or Adaptive Bank)
   const startNewExam = (packageId = 'h10901') => {
-    if (!isFinalAssessmentPassed) {
-      navigate('/study/roadmap');
-      return;
-    }
     const newExam = packageId === 'adaptive'
       ? generateOfficialExam(words)
       : getOfficialExamPackage(packageId);
@@ -254,37 +250,35 @@ export default function OfficialExamView() {
             </div>
           </div>
 
-          {/* Action to Start Test or Unlock Banner */}
-          {currentLevel === 1 && !isFinalAssessmentPassed ? (
-            <div className="p-5 sm:p-6 rounded-3xl bg-amber-50/90 border border-amber-200 text-amber-950 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs">
+          {/* Prerequisite Notification (If not passed final assessment) */}
+          {currentLevel === 1 && !isFinalAssessmentPassed && (
+            <div className="p-4 sm:p-5 rounded-3xl bg-amber-50/90 border border-amber-200 text-amber-950 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs">
               <div className="flex items-start sm:items-center gap-3.5">
-                <div className="w-12 h-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-xs">
-                  <Lock size={22} />
+                <div className="w-11 h-11 rounded-2xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-xs">
+                  <Lock size={20} />
                 </div>
                 <div>
                   <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-amber-800 mb-0.5">
-                    <span>Ujian Bersertifikat Terkunci 🔒</span>
+                    <span>Akses 11 Paket Terbuka Bebas • Status Sertifikasi Resmi 🔒</span>
                   </div>
-                  <h4 className="text-sm font-bold text-amber-950">Selesaikan Assesmen Final HSK {currentLevel || 1} Terlebih Dahulu</h4>
-                  <p className="text-xs text-amber-800 mt-0.5 leading-relaxed">
-                    Selesaikan <strong>Evaluasi Berkala</strong> ({completedCheckpointsCount}/{requiredCheckpointsCount} selesai) dan <strong>Assesmen Final HSK {currentLevel || 1}</strong> di Roadmap untuk membuka ujian ini.
-                  </p>
-                  <p className="text-[11px] text-amber-700 mt-1 italic">
-                    * Jika Anda sudah menguasai HSK {currentLevel || 1}, selesaikan evaluasi di Roadmap sekarang untuk membuka sertifikasi seketika.
+                  <h4 className="text-xs sm:text-sm font-bold text-amber-950">Anda dapat langsung mencoba 11 paket simulasi ujian di bawah ini!</h4>
+                  <p className="text-[11px] text-amber-800 mt-0.5 leading-relaxed">
+                    Selesaikan <strong>Evaluasi Berkala</strong> ({completedCheckpointsCount}/{requiredCheckpointsCount} selesai) dan <strong>Assesmen Final HSK {currentLevel || 1}</strong> di Roadmap untuk memperoleh sertifikat resmi digital terverifikasi.
                   </p>
                 </div>
               </div>
 
               <button
                 onClick={() => navigate('/study/roadmap')}
-                className="px-5 py-3 bg-amber-600 hover:bg-amber-700 active:scale-95 text-white font-bold text-xs rounded-2xl shadow-xs transition-all shrink-0 cursor-pointer flex items-center justify-center gap-1.5"
+                className="px-4 py-2.5 bg-amber-600 hover:bg-amber-700 active:scale-95 text-white font-bold text-xs rounded-xl shadow-xs transition-all shrink-0 cursor-pointer flex items-center justify-center gap-1.5"
               >
-                <span>Buka Assesmen di Roadmap</span>
+                <span>Buka Roadmap</span>
                 <ArrowRight size={14} />
               </button>
             </div>
-          ) : (
-            <div className="space-y-6">
+          )}
+
+          <div className="space-y-6">
               {/* Header Info */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-gradient-to-r from-rose-50 via-white to-amber-50/50 p-4 sm:p-5 rounded-3xl border border-rose-100 shadow-2xs">
                 <div className="space-y-1">
@@ -395,7 +389,6 @@ export default function OfficialExamView() {
                 })}
               </div>
             </div>
-          )}
 
           {/* EXAM HISTORY SECTION */}
           <div className="space-y-3">

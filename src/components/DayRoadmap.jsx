@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   ArrowRight, 
   Sparkles, 
@@ -12,7 +13,8 @@ import {
   Lock,
   ShieldCheck,
   BookOpen,
-  HelpCircle
+  HelpCircle,
+  FileCheck
 } from 'lucide-react';
 import { DAYS_CONFIG } from '../data/hsk1Words';
 import { useLearning } from '../context/LearningContext';
@@ -22,6 +24,7 @@ import DayGrammarModal from './DayGrammarModal';
 import DayHanziQuizModal from './DayHanziQuizModal';
 
 export default function DayRoadmap({ onSelectDayStudy }) {
+  const navigate = useNavigate();
   const { 
     totalMastered, 
     words, 
@@ -610,17 +613,29 @@ export default function DayRoadmap({ onSelectDayStudy }) {
 
             <div className="shrink-0 flex flex-col sm:flex-row gap-2.5">
               {isFinalAssessmentUnlocked ? (
-                <button
-                  onClick={() => setIsFinalModalOpen(true)}
-                  className={`py-3.5 px-6 rounded-2xl font-bold text-xs shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer ${
-                    isFinalAssessmentPassed
-                      ? 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-emerald-500/20'
-                      : 'bg-gradient-to-r from-rose-500 to-amber-500 hover:from-rose-600 hover:to-amber-600 text-white shadow-rose-500/20'
-                  }`}
-                >
-                  <Award size={16} />
-                  <span>{isFinalAssessmentPassed ? 'Uji Ulang Assesmen Final' : 'Mulai Assesmen Final ➔'}</span>
-                </button>
+                <>
+                  <button
+                    onClick={() => setIsFinalModalOpen(true)}
+                    className={`py-3.5 px-5 rounded-2xl font-bold text-xs shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer ${
+                      isFinalAssessmentPassed
+                        ? 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-emerald-500/20'
+                        : 'bg-gradient-to-r from-rose-500 to-amber-500 hover:from-rose-600 hover:to-amber-600 text-white shadow-rose-500/20'
+                    }`}
+                  >
+                    <Award size={16} />
+                    <span>{isFinalAssessmentPassed ? 'Uji Ulang Assesmen Final' : 'Mulai Assesmen Final ➔'}</span>
+                  </button>
+
+                  {isFinalAssessmentPassed && (
+                    <button
+                      onClick={() => navigate('/official')}
+                      className="py-3.5 px-5 rounded-2xl bg-white hover:bg-slate-100 text-slate-900 font-bold text-xs shadow-md transition-all active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <FileCheck size={16} className="text-rose-600" />
+                      <span>Menuju 11 Paket Ujian HSK ➔</span>
+                    </button>
+                  )}
+                </>
               ) : (
                 <button
                   onClick={() => setIsLockedNoticeOpen(true)}
