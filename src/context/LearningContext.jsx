@@ -938,12 +938,15 @@ export function LearningProvider({ children }) {
     const totalDays = daysConfig.length;
     const list = [];
 
+    const levelWordsCount = rawWords ? rawWords.length : 500;
+    const halfCount = Math.round(levelWordsCount / 2);
+
     if (totalDays <= 4) {
       list.push({
         id: 'checkpoint_day_2',
         day: 2,
         title: 'Evaluasi Berkala 1 (Hari 1 – 2)',
-        desc: 'Uji pengingatan kumulatif 250 kosakata fondasi pertama HSK 1.',
+        desc: `Uji pengingatan kumulatif ~${halfCount} kosakata fondasi awal HSK ${currentLevel || 1}.`,
         coverageStartDay: 1,
         coverageEndDay: 2,
         questionCount: 15
@@ -952,7 +955,7 @@ export function LearningProvider({ children }) {
         id: 'checkpoint_day_4',
         day: 4,
         title: 'Evaluasi Berkala 2 (Hari 1 – 4)',
-        desc: 'Uji pengingatan kumulatif seluruh 500 kosakata HSK 1.',
+        desc: `Uji pengingatan kumulatif seluruh ${levelWordsCount} kosakata HSK ${currentLevel || 1}.`,
         coverageStartDay: 1,
         coverageEndDay: 4,
         questionCount: 20
@@ -965,7 +968,7 @@ export function LearningProvider({ children }) {
           id: `checkpoint_day_${d}`,
           day: d,
           title: `Evaluasi Berkala ${count} (Hari 1 – ${d})`,
-          desc: `Uji pengingatan kumulatif seluruh kosakata dari Hari 1 hingga Hari ${d}.`,
+          desc: `Uji pengingatan kumulatif seluruh kosakata dari Hari 1 hingga Hari ${d} untuk HSK ${currentLevel || 1}.`,
           coverageStartDay: 1,
           coverageEndDay: d,
           questionCount: 15
@@ -974,7 +977,7 @@ export function LearningProvider({ children }) {
       }
     }
     return list;
-  }, [daysConfig]);
+  }, [daysConfig, rawWords, currentLevel]);
 
   const completedCheckpointsCount = useMemo(() => {
     return periodicCheckpoints.filter(cp => periodicAssessments[cp.id]?.passed).length;

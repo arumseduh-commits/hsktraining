@@ -520,7 +520,7 @@ export default function DayRoadmap({ onSelectDayStudy }) {
                     ? 'bg-rose-500/30 text-rose-300 border border-rose-400/30'
                     : 'bg-slate-800 text-slate-400 border border-slate-700'
                 }`}>
-                  Tahap Puncak HSK 1
+                  Tahap Puncak HSK {currentLevel || 1}
                 </span>
 
                 {isFinalAssessmentPassed ? (
@@ -542,13 +542,13 @@ export default function DayRoadmap({ onSelectDayStudy }) {
               </div>
 
               <h3 className="text-xl sm:text-2xl font-black text-white">
-                Assesmen Final Kelulusan HSK 1
+                Assesmen Final Kelulusan HSK {currentLevel || 1}
               </h3>
               <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
-                Ujian komprehensif 25 soal menguji 500 kosakata dan seluruh tata bahasa dasar HSK 1. Luluskan assesmen ini untuk membuka Kuis Cepat lanjutan dan Ujian Resmi Bersertifikat!
+                Ujian komprehensif 25 soal menguji {words.length} kosakata dan seluruh tata bahasa HSK {currentLevel || 1}. Luluskan assesmen ini untuk membuka Kuis Cepat lanjutan dan Ujian Resmi Bersertifikat!
               </p>
               <p className="text-[11px] text-slate-400 italic">
-                * Jika Anda sudah bisa materi HSK 1, selesaikan evaluasi ini terlebih dahulu untuk langsung membuka seluruh kuis dan ujian HSK.
+                * Jika Anda sudah bisa materi HSK {currentLevel || 1}, selesaikan evaluasi ini terlebih dahulu untuk langsung membuka seluruh kuis dan ujian HSK.
               </p>
             </div>
 

@@ -140,7 +140,7 @@ export default function ProfileView() {
           <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-100">
             <span className="text-[10px] text-slate-400 font-semibold uppercase block">Kata Dikuasai</span>
             <span className="text-2xl font-black text-emerald-600 font-mono mt-0.5 block">{totalMastered}</span>
-            <span className="text-[10px] text-slate-400">dari 500 kata HSK 1</span>
+            <span className="text-[10px] text-slate-400">dari {words.length} kata HSK {currentLevel}</span>
           </div>
 
           <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-100">
@@ -162,6 +162,20 @@ export default function ProfileView() {
               <div 
                 className="h-full bg-rose-500 rounded-full transition-all duration-500"
                 style={{ width: `${Math.min(100, Math.round((totalMastered/500)*100))}%` }}
+              />
+            </div>
+          </div>
+
+          {/* Milestone HSK 2 */}
+          <div className="space-y-1">
+            <div className="flex items-center justify-between text-xs font-semibold text-slate-700">
+              <span>Percakapan: HSK 2 (1.272 kata kumulatif)</span>
+              <span className="text-amber-600 font-mono">{totalMastered >= 1272 ? '100%' : `${Math.round((totalMastered/1272)*100)}%`}</span>
+            </div>
+            <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-amber-500 rounded-full transition-all duration-500"
+                style={{ width: `${Math.min(100, Math.round((totalMastered/1272)*100))}%` }}
               />
             </div>
           </div>

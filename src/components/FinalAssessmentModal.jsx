@@ -20,7 +20,7 @@ import {
 import confetti from 'canvas-confetti';
 import { speakChinese } from '../utils/speech';
 import { useLearning } from '../context/LearningContext';
-import { GRAMMAR_POINTS } from '../data/grammarPoints';
+import { getGrammarByLevel } from '../data/grammarPoints';
 
 export default function FinalAssessmentModal({ 
   isOpen, 
@@ -38,7 +38,7 @@ export default function FinalAssessmentModal({
   const [isFinished, setIsFinished] = useState(false);
   const [userAnswers, setUserAnswers] = useState([]);
 
-  // Generate 25 comprehensive questions for Final HSK 1 Assessment
+  // Generate 25 comprehensive questions for Final HSK Assessment
   const generateQuestions = React.useCallback(() => {
     if (!words || words.length === 0) return [];
 
@@ -92,8 +92,9 @@ export default function FinalAssessmentModal({
       });
     }
 
-    // 4. Grammar & Sentence Structure (5 questions from GRAMMAR_POINTS)
-    const grammarPool = [...GRAMMAR_POINTS].sort(() => Math.random() - 0.5).slice(0, 5);
+    // 4. Grammar & Sentence Structure (5 questions from level grammar)
+    const grammarDataset = getGrammarByLevel(currentLevel);
+    const grammarPool = [...grammarDataset].sort(() => Math.random() - 0.5).slice(0, 5);
     grammarPool.forEach((gp) => {
       // Pick an example sentence from the grammar point
       const example = gp.contoh[0];
@@ -104,7 +105,7 @@ export default function FinalAssessmentModal({
         arti: example.id
       };
       // Distractor grammar sentences
-      const otherGps = GRAMMAR_POINTS.filter(g => g.id !== gp.id).sort(() => Math.random() - 0.5).slice(0, 3);
+      const otherGps = grammarDataset.filter(g => g.id !== gp.id).sort(() => Math.random() - 0.5).slice(0, 3);
       const distractors = otherGps.map(og => ({
         id: `g_${og.id}`,
         hanzi: og.contoh[0].hz,
@@ -126,7 +127,7 @@ export default function FinalAssessmentModal({
     });
 
     return generated;
-  }, [words]);
+  }, [words, currentLevel]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -233,11 +234,11 @@ export default function FinalAssessmentModal({
             <div>
               <div className="flex items-center gap-1.5">
                 <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-rose-500/30 text-rose-300 border border-rose-500/40">
-                  Ujian Penentu Kelulusan HSK 1
+                  Ujian Penentu Kelulusan HSK {currentLevel || 1}
                 </span>
               </div>
               <h3 className="text-base font-bold text-white mt-0.5">
-                Assesmen Final Kelulusan (Standar 3.0)
+                Assesmen Final Kelulusan HSK {currentLevel || 1} (Standar 3.0)
               </h3>
             </div>
           </div>
@@ -426,16 +427,16 @@ export default function FinalAssessmentModal({
                     ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' 
                     : 'bg-amber-50 text-amber-800 border border-amber-200'
                 }`}>
-                  {isPassed ? '🏆 LULUS ASSESMEN FINAL HSK 1' : '! BELUM MEMENUHI AMBANG KELULUSAN'}
+                  {isPassed ? `🏆 LULUS ASSESMEN FINAL HSK ${currentLevel || 1}` : '! BELUM MEMENUHI AMBANG KELULUSAN'}
                 </span>
                 <h3 className="text-xl sm:text-2xl font-black text-slate-900">
                   {isPassed 
-                    ? 'Selamat! Seluruh Kosakata & Tata Bahasa HSK 1 Terbukti Dikuasai!' 
+                    ? `Selamat! Seluruh Kosakata & Tata Bahasa HSK ${currentLevel || 1} Terbukti Dikuasai!` 
                     : 'Skor Anda Belum Mencapai 70%'}
                 </h3>
                 <p className="text-xs text-slate-500 mt-1.5 max-w-md mx-auto leading-relaxed">
                   {isPassed 
-                    ? 'Anda telah membuktikan penguasaan komprehensif atas 500 kosakata dan tata bahasa HSK 1. Seluruh Kuis Cepat dan Ujian Resmi Bersertifikat kini telah terbuka penuh untuk Anda ikuti!'
+                    ? `Anda telah membuktikan penguasaan komprehensif atas ${words.length} kosakata dan tata bahasa HSK ${currentLevel || 1}. Seluruh Kuis Cepat dan Ujian Resmi Bersertifikat kini telah terbuka penuh untuk Anda ikuti!`
                     : `Anda memperoleh skor ${percentScore}% (${score}/${questions.length} benar). Diperlukan minimal 70% untuk lulus Assesmen Final dan membuka Ujian Sertifikat Resmi.`}
                 </p>
               </div>

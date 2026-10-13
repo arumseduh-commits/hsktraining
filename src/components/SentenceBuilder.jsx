@@ -8,19 +8,28 @@ import {
   Lightbulb
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import { SENTENCE_DRILLS } from '../data/sentenceDrills';
+import { getSentenceDrills } from '../data/sentenceDrills';
 import { speakChinese } from '../utils/speech';
 import { useLearning } from '../context/LearningContext';
 
 export default function SentenceBuilder() {
-  const { audioSpeed, recordWordLearnedToday } = useLearning();
+  const { audioSpeed, recordWordLearnedToday, currentLevel } = useLearning();
+
+  const drills = React.useMemo(() => {
+    return getSentenceDrills(currentLevel);
+  }, [currentLevel]);
 
   const [currentIndex, setCurrentIndex] = useState(0);
-  const currentDrill = SENTENCE_DRILLS[currentIndex];
+  const currentDrill = drills[currentIndex] || drills[0];
 
   const [availableTokens, setAvailableTokens] = useState([]);
   const [selectedTokens, setSelectedTokens] = useState([]);
   const [status, setStatus] = useState('idle');
+
+  // Reset index when level changes
+  useEffect(() => {
+    setCurrentIndex(0);
+  }, [currentLevel]);
 
   useEffect(() => {
     if (!currentDrill) return;
@@ -68,7 +77,7 @@ export default function SentenceBuilder() {
   };
 
   const handleNext = () => {
-    if (currentIndex < SENTENCE_DRILLS.length - 1) {
+    if (currentIndex < drills.length - 1) {
       setCurrentIndex(prev => prev + 1);
     } else {
       setCurrentIndex(0);
@@ -80,8 +89,8 @@ export default function SentenceBuilder() {
       {/* Top Header */}
       <div className="flex items-center justify-between p-2">
         <div>
-          <h3 className="text-base font-bold text-slate-900 tracking-tight">Susun Tata Bahasa</h3>
-          <p className="text-xs text-slate-400 font-medium">Latihan {currentIndex + 1} dari {SENTENCE_DRILLS.length}</p>
+          <h3 className="text-base font-bold text-slate-900 tracking-tight">Susun Tata Bahasa HSK {currentLevel || 1}</h3>
+          <p className="text-xs text-slate-400 font-medium">Latihan {currentIndex + 1} dari {drills.length}</p>
         </div>
 
         <button

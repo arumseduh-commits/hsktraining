@@ -14,7 +14,7 @@ import {
   ArrowRight
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import { MOCK_EXAM_QUESTIONS } from '../data/mockExam';
+import { getMockExamQuestions } from '../data/mockExam';
 import { speakChinese } from '../utils/speech';
 import { useLearning } from '../context/LearningContext';
 
@@ -29,6 +29,10 @@ export default function MockExamView() {
     completedCheckpointsCount,
     requiredCheckpointsCount
   } = useLearning();
+
+  const mockQuestions = React.useMemo(() => {
+    return getMockExamQuestions(currentLevel);
+  }, [currentLevel]);
 
   const [examState, setExamState] = useState('intro');
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -48,10 +52,10 @@ export default function MockExamView() {
     });
   };
 
-  const currentQ = MOCK_EXAM_QUESTIONS[currentIndex];
+  const currentQ = mockQuestions[currentIndex] || mockQuestions[0];
 
   const startExam = () => {
-    if (currentLevel === 1 && !isFinalAssessmentPassed) {
+    if (!isFinalAssessmentPassed) {
       navigate('/study/roadmap');
       return;
     }
@@ -87,14 +91,14 @@ export default function MockExamView() {
   const finishExam = () => {
     clearInterval(timerRef.current);
     let correctCount = 0;
-    MOCK_EXAM_QUESTIONS.forEach(q => {
+    mockQuestions.forEach(q => {
       if (userAnswers[q.id] === q.answer) {
         correctCount++;
       }
     });
 
-    const finalScore = Math.round((correctCount / MOCK_EXAM_QUESTIONS.length) * 100);
-    recordExamScore(correctCount, MOCK_EXAM_QUESTIONS.length);
+    const finalScore = Math.round((correctCount / mockQuestions.length) * 100);
+    recordExamScore(correctCount, mockQuestions.length);
     setExamState('result');
 
     if (finalScore >= 60) {
@@ -111,11 +115,11 @@ export default function MockExamView() {
   const answeredCount = Object.keys(userAnswers).length;
   let correctCount = 0;
   if (examState === 'result') {
-    MOCK_EXAM_QUESTIONS.forEach(q => {
+    mockQuestions.forEach(q => {
       if (userAnswers[q.id] === q.answer) correctCount++;
     });
   }
-  const finalScore = Math.round((correctCount / MOCK_EXAM_QUESTIONS.length) * 100);
+  const finalScore = Math.round((correctCount / mockQuestions.length) * 100);
   const isPassed = finalScore >= 60;
 
   return (
@@ -129,7 +133,7 @@ export default function MockExamView() {
 
           <div>
             <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
-              Simulasi Ujian HSK 1 (Standar 3.0)
+              Simulasi Ujian HSK {currentLevel || 1} (Standar 3.0)
             </h2>
             <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto leading-relaxed">
               20 soal standar resmi (10 Listening & 10 Reading). Nilai kelulusan minimal <strong>60%</strong>.
@@ -163,14 +167,14 @@ export default function MockExamView() {
             </div>
           )}
 
-          {currentLevel === 1 && !isFinalAssessmentPassed ? (
+          {!isFinalAssessmentPassed ? (
             <div className="p-4 rounded-2xl bg-amber-50/90 border border-amber-200 text-amber-950 space-y-2 text-left">
               <div className="flex items-center gap-2 text-xs font-bold text-amber-900">
                 <Lock size={15} className="text-amber-600" />
                 <span>Kuis Ujian Terkunci 🔒</span>
               </div>
               <p className="text-xs text-amber-800 leading-relaxed">
-                Selesaikan <strong>Evaluasi Berkala</strong> ({completedCheckpointsCount}/{requiredCheckpointsCount} selesai) dan <strong>Assesmen Final HSK 1</strong> di Roadmap terlebih dahulu untuk membuka kuis ujian ini.
+                Selesaikan <strong>Evaluasi Berkala</strong> ({completedCheckpointsCount}/{requiredCheckpointsCount} selesai) dan <strong>Assesmen Final HSK {currentLevel || 1}</strong> di Roadmap terlebih dahulu untuk membuka kuis ujian ini.
               </p>
               <button
                 onClick={() => navigate('/study/roadmap')}
@@ -313,7 +317,7 @@ export default function MockExamView() {
             </div>
 
             <h3 className="text-xl font-black text-slate-900">
-              {isPassed ? 'SELAMAT, ANDA LULUS HSK 1!' : 'BELUM MENCAPAI TARGET'}
+              {isPassed ? `SELAMAT, ANDA LULUS HSK ${currentLevel || 1}!` : 'BELUM MENCAPAI TARGET'}
             </h3>
 
             <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 max-w-xs mx-auto">
@@ -322,7 +326,7 @@ export default function MockExamView() {
                 {finalScore} <span className="text-sm text-slate-400">/ 100</span>
               </span>
               <span className="text-[11px] font-semibold text-slate-500 mt-0.5 block">
-                Benar {correctCount} dari {MOCK_EXAM_QUESTIONS.length} Soal
+                Benar {correctCount} dari {mockQuestions.length} Soal
               </span>
             </div>
           </div>
@@ -330,11 +334,11 @@ export default function MockExamView() {
           {/* Review */}
           <div className="space-y-3 pt-2">
             <h4 className="text-xs font-bold text-slate-900 border-b border-slate-100 pb-2">
-              Pembahasan Soal:
+              Pembahasan Soal HSK {currentLevel || 1}:
             </h4>
 
             <div className="space-y-2">
-              {MOCK_EXAM_QUESTIONS.map((q, idx) => {
+              {mockQuestions.map((q, idx) => {
                 const userAns = userAnswers[q.id];
                 const isCorrect = userAns === q.answer;
 

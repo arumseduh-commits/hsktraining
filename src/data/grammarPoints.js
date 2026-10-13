@@ -1,5 +1,7 @@
-// 48 Tata Bahasa Lengkap HSK 1 (Standar 3.0 Kurikulum Resmi)
+// Tata Bahasa Lengkap HSK Standar 3.0 (HSK 1 & HSK 2)
 // Lengkap dengan rumus pola, penjelasan bahasa Indonesia, contoh kalimat Hanzi-Pinyin-Arti, dan tips praktis.
+
+import { HSK2_GRAMMAR, HSK2_GRAMMAR_CATEGORIES } from './hsk2Grammar.js';
 
 export const GRAMMAR_CATEGORIES = [
   "Semua",
@@ -607,3 +609,18 @@ export const GRAMMAR_POINTS = [
     tips: "Urutan wajib: TAHUN -> BULAN -> TANGGAL -> JAM -> MENIT. Selalu dari yang paling besar!"
   }
 ];
+
+export const HSK1_GRAMMAR_POINTS = GRAMMAR_POINTS;
+export const HSK1_GRAMMAR_CATEGORIES = GRAMMAR_CATEGORIES;
+export const HSK2_GRAMMAR_POINTS = HSK2_GRAMMAR;
+export { HSK2_GRAMMAR, HSK2_GRAMMAR_CATEGORIES };
+
+export function getGrammarByLevel(level = 1) {
+  return Number(level) === 2 ? HSK2_GRAMMAR : GRAMMAR_POINTS;
+}
+
+export function getGrammarCategoriesByLevel(level = 1) {
+  return Number(level) === 2 ? HSK2_GRAMMAR_CATEGORIES : GRAMMAR_CATEGORIES;
+}
+
+export default GRAMMAR_POINTS;

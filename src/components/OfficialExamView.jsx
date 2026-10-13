@@ -66,7 +66,7 @@ export default function OfficialExamView() {
 
   // Start new randomized official exam session
   const startNewExam = () => {
-    if (currentLevel === 1 && !isFinalAssessmentPassed) {
+    if (!isFinalAssessmentPassed) {
       navigate('/study/roadmap');
       return;
     }
@@ -130,6 +130,7 @@ export default function OfficialExamView() {
     const resultRecord = {
       id: Date.now(),
       examId: examSession.examId,
+      level: currentLevel || 1,
       date: new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }),
       time: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
       candidateName: candidateName || 'Pembelajar HSK',
@@ -180,7 +181,7 @@ export default function OfficialExamView() {
               </div>
 
               <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-                Ujian Sertifikasi Resmi HSK 1 (Standar 3.0)
+                Ujian Sertifikasi Resmi HSK {currentLevel || 1} (Standar 3.0)
               </h2>
 
               <p className="text-xs sm:text-sm text-slate-300 leading-relaxed font-normal">
@@ -253,12 +254,12 @@ export default function OfficialExamView() {
                   <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-amber-800 mb-0.5">
                     <span>Ujian Bersertifikat Terkunci 🔒</span>
                   </div>
-                  <h4 className="text-sm font-bold text-amber-950">Selesaikan Assesmen Final HSK 1 Terlebih Dahulu</h4>
+                  <h4 className="text-sm font-bold text-amber-950">Selesaikan Assesmen Final HSK {currentLevel || 1} Terlebih Dahulu</h4>
                   <p className="text-xs text-amber-800 mt-0.5 leading-relaxed">
-                    Selesaikan <strong>Evaluasi Berkala</strong> ({completedCheckpointsCount}/{requiredCheckpointsCount} selesai) dan <strong>Assesmen Final HSK 1</strong> di Roadmap untuk membuka ujian ini.
+                    Selesaikan <strong>Evaluasi Berkala</strong> ({completedCheckpointsCount}/{requiredCheckpointsCount} selesai) dan <strong>Assesmen Final HSK {currentLevel || 1}</strong> di Roadmap untuk membuka ujian ini.
                   </p>
                   <p className="text-[11px] text-amber-700 mt-1 italic">
-                    * Jika Anda sudah menguasai HSK 1, selesaikan evaluasi di Roadmap sekarang untuk membuka sertifikasi seketika.
+                    * Jika Anda sudah menguasai HSK {currentLevel || 1}, selesaikan evaluasi di Roadmap sekarang untuk membuka sertifikasi seketika.
                   </p>
                 </div>
               </div>
@@ -274,7 +275,7 @@ export default function OfficialExamView() {
           ) : (
             <div className="flex items-center justify-between gap-4 p-5 card-subtle rounded-3xl bg-white">
               <div>
-                <h3 className="text-base font-bold text-slate-900">Siap Menguji Penguasaan HSK 1 Anda?</h3>
+                <h3 className="text-base font-bold text-slate-900">Siap Menguji Penguasaan HSK {currentLevel || 1} Anda?</h3>
                 <p className="text-xs text-slate-500 mt-0.5">
                   Waktu pengerjaan 25 menit. Soal baru yang segar akan diacak otomatis.
                 </p>
@@ -300,7 +301,7 @@ export default function OfficialExamView() {
 
             {officialHistory.length === 0 ? (
               <div className="card-subtle rounded-3xl p-8 text-center text-slate-400 text-xs">
-                Belum ada riwayat ujian resmi. Mulai ujian pertama Anda untuk mendapatkan sertifikat HSK 1!
+                Belum ada riwayat ujian resmi. Mulai ujian pertama Anda untuk mendapatkan sertifikat HSK {currentLevel || 1}!
               </div>
             ) : (
               <div className="space-y-2.5">

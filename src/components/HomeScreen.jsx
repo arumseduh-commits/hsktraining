@@ -241,8 +241,8 @@ export default function HomeScreen({
       {/* Daily Goal & Streak Check-in Widget (SuperChinese Style) */}
       <DailyGoalWidget onOpenTargetModal={() => setIsTargetModalOpen(true)} />
 
-      {/* Assesmen Kelulusan Status Banner (HSK 1) */}
-      {currentLevel === 1 && (
+      {/* Assesmen Kelulusan Status Banner */}
+      {(
         <div 
           onClick={() => navigate('/study/roadmap')}
           className="p-4 rounded-3xl bg-white border border-slate-200/80 hover:border-indigo-300 shadow-2xs flex items-center justify-between gap-3 transition-all cursor-pointer group"
@@ -259,7 +259,7 @@ export default function HomeScreen({
             </div>
             <div>
               <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                <span>Evaluasi & Assesmen HSK 1</span>
+                <span>Evaluasi & Assesmen HSK {currentLevel}</span>
               </div>
               <h4 className="text-xs sm:text-sm font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">
                 {isFinalAssessmentPassed 
@@ -270,7 +270,7 @@ export default function HomeScreen({
               </h4>
               <p className="text-[11px] text-slate-500 line-clamp-1">
                 {isFinalAssessmentPassed
-                  ? 'Seluruh 500 kosakata telah terverifikasi. Siap ikut ujian resmi!'
+                  ? `Seluruh ${totalWords} kosakata telah terverifikasi. Siap ikut ujian resmi!`
                   : isFinalAssessmentUnlocked
                   ? 'Selesaikan assesmen final untuk membuka ujian sertifikat resmi.'
                   : 'Selesaikan evaluasi kelipatan hari untuk membuka Assesmen Final.'}

@@ -304,3 +304,315 @@ export const MOCK_EXAM_QUESTIONS = [
     explanation: "Dalam kalimat: 洗手间在前面的商店旁边 = Toilet berada di samping toko yang ada di depan."
   }
 ];
+
+export const HSK1_MOCK_EXAM_QUESTIONS = MOCK_EXAM_QUESTIONS;
+
+export const HSK2_MOCK_EXAM_QUESTIONS = [
+  // Bagian 1: Listening Comprehension HSK 2 (听力) - Soal 1 s/d 10
+  {
+    id: 1,
+    type: "listening",
+    section: "Bagian 1: Mendengarkan (听力)",
+    audioText: "我家离学校很近，走路十分钟就到了。",
+    prompt: "Dengarkan audio, lalu pilih pernyataan yang BENAR:",
+    options: [
+      "Rumah berjarak sangat dekat dari sekolah.",
+      "Rumah sangat jauh dari sekolah.",
+      "Dia naik mobil ke sekolah selama satu jam.",
+      "Dia tidak suka pergi ke sekolah."
+    ],
+    answer: 0,
+    explanation: "Audio: 我家离学校很近，走路十分钟就到了 = Rumah saya sangat dekat dari sekolah, jalan kaki 10 menit sudah sampai."
+  },
+  {
+    id: 2,
+    type: "listening",
+    section: "Bagian 1: Mendengarkan (听力)",
+    audioText: "虽然今天下雪很冷，但是大家都很开心。",
+    prompt: "Dengarkan audio, apakah pernyataan ini BENAR atau SALAH?\n'Semua orang merasa sedih karena cuaca sangat dingin.'",
+    options: [
+      "Benar (对)",
+      "Salah (错)"
+    ],
+    answer: 1,
+    explanation: "Audio: 虽然今天下雪很冷，但是大家都很开心 (Meskipun hari ini salju dingin, tetapi semua orang sangat senang). Maka pernyataan bahwa mereka sedih adalah SALAH (错)."
+  },
+  {
+    id: 3,
+    type: "listening",
+    section: "Bagian 1: Mendengarkan (听力)",
+    audioText: "因为今天身体不舒服，所以我没去上班。",
+    prompt: "Dengarkan audio, kenapa dia tidak pergi bekerja hari ini?",
+    options: [
+      "Karena ketinggalan kereta",
+      "Karena merasa tidak enak badan",
+      "Karena ingin berbelanja",
+      "Karena hari libur nasional"
+    ],
+    answer: 1,
+    explanation: "Audio: 因为今天身体不舒服 (karena hari ini tidak enak badan), jadi dia tidak pergi kerja."
+  },
+  {
+    id: 4,
+    type: "listening",
+    section: "Bagian 1: Mendengarkan (听力)",
+    audioText: "弟弟比哥哥矮一点儿，但是跑得更快。",
+    prompt: "Dengarkan audio, manakah yang benar tentang adik laki-laki (弟弟)?",
+    options: [
+      "Adik lebih tinggi dan lambat.",
+      "Adik sedikit lebih pendek tetapi lari lebih cepat.",
+      "Adik sama tingginya dengan kakak.",
+      "Adik tidak suka berolahraga lari."
+    ],
+    answer: 1,
+    explanation: "Audio: 弟弟比哥哥矮一点儿，但是跑得更快 = Adik sedikit lebih pendek dari kakak, tetapi berlari lebih cepat."
+  },
+  {
+    id: 5,
+    type: "listening",
+    section: "Bagian 1: Mendengarkan (听力)",
+    audioText: "请问这件红色的衣服多少钱？两百块。",
+    prompt: "Dengarkan audio, berapa harga baju merah tersebut?",
+    options: [
+      "20 Yuan (二十块)",
+      "100 Yuan (一百块)",
+      "200 Yuan (两百块)",
+      "500 Yuan (五百块)"
+    ],
+    answer: 2,
+    explanation: "Audio menyebutkan: 两百块 (Liǎng bǎi kuài = 200 Yuan)."
+  },
+  {
+    id: 6,
+    type: "listening",
+    section: "Bagian 1: Mendengarkan (听力)",
+    audioText: "电影快要开始了，我们快进去吧。",
+    prompt: "Dengarkan audio, apa yang dikatakan pembicara?",
+    options: [
+      "Filmnya sudah selesai diputar.",
+      "Film sebentar lagi akan mulai, ayo cepat masuk.",
+      "Bioskop hari ini tutup.",
+      "Tiket film sudah habis terjual."
+    ],
+    answer: 1,
+    explanation: "Audio: 电影快要开始了，我们快进去吧 = Film sebentar lagi akan mulai, kita cepat masuk yuk."
+  },
+  {
+    id: 7,
+    type: "listening",
+    section: "Bagian 1: Mendengarkan (听力)",
+    audioText: "你去过中国吗？我去过两次北京。",
+    prompt: "Dengarkan audio, berapa kali dia pernah mengunjungi Beijing?",
+    options: [
+      "Belum pernah",
+      "Satu kali",
+      "Dua kali (两次)",
+      "Tiga kali"
+    ],
+    answer: 2,
+    explanation: "Audio: 我去过两次北京 (Wǒ qù guo liǎng cì Běijīng = Saya pernah pergi 2 kali ke Beijing)."
+  },
+  {
+    id: 8,
+    type: "listening",
+    section: "Bagian 1: Mendengarkan (听力)",
+    audioText: "你生病发烧了，应该多喝水，多休息。",
+    prompt: "Dengarkan audio, saran apa yang diberikan kepada orang yang sakit?",
+    options: [
+      "Banyak makan es krim",
+      "Pergi bekerja seperti biasa",
+      "Banyak minum air dan banyak istirahat",
+      "Pergi olahraga lari maraton"
+    ],
+    answer: 2,
+    explanation: "Audio: 应该多喝水，多休息 = Seharusnya banyak minum air dan banyak istirahat."
+  },
+  {
+    id: 9,
+    type: "listening",
+    section: "Bagian 1: Mendengarkan (听力)",
+    audioText: "一直往前走，在第一个路口向右拐就到了。",
+    prompt: "Dengarkan audio petunjuk jalan, ke arah mana harus belok di perempatan pertama?",
+    options: [
+      "Belok ke kiri (向左拐)",
+      "Belok ke kanan (向右拐)",
+      "Putar balik ke belakang",
+      "Naik tangga ke lantai dua"
+    ],
+    answer: 1,
+    explanation: "Audio: 在第一个路口向右拐 (Di perempatan pertama belok ke kanan)."
+  },
+  {
+    id: 10,
+    type: "listening",
+    section: "Bagian 1: Mendengarkan (听力)",
+    audioText: "我们一边喝茶一边看书，感觉很舒服。",
+    prompt: "Dengarkan audio, dua kegiatan apa yang dilakukan secara bersamaan?",
+    options: [
+      "Minum teh sambil membaca buku",
+      "Makan malam sambil menonton film",
+      "Mendengarkan musik sambil mencuci baju",
+      "Berlari sambil menelpon teman"
+    ],
+    answer: 0,
+    explanation: "Audio: 一边喝茶一边看书 = Sambil minum teh sambil membaca buku."
+  },
+
+  // Bagian 2: Reading Comprehension HSK 2 (阅读) - Soal 11 s/d 20
+  {
+    id: 11,
+    type: "reading",
+    section: "Bagian 2: Membaca (阅读)",
+    text: "这件黑色的衬衫比那件白色的贵五十块钱。",
+    prompt: "Berdasarkan kalimat di atas, kemeja manakah yang lebih mahal?",
+    options: [
+      "Kemeja warna hitam (黑色衬衫)",
+      "Kemeja warna putih (白色衬衫)",
+      "Kedua kemeja harganya sama persis",
+      "Tidak ada yang dijual"
+    ],
+    answer: 0,
+    explanation: "Rumus A 比 B 贵 = A lebih mahal dari B. Maka kemeja hitam (这件黑色的衬衫) lebih mahal 50 yuan dibanding yang putih."
+  },
+  {
+    id: 12,
+    type: "reading",
+    section: "Bagian 2: Membaca (阅读)",
+    text: "A: 你看见我的手机了吗？\nB: 就在桌子上，在电脑旁边。",
+    prompt: "Di manakah posisi ponsel berada?",
+    options: [
+      "Di dalam tas sekolah",
+      "Di atas meja, di samping komputer",
+      "Di bawah tempat tidur",
+      "Di dalam laci lemari"
+    ],
+    answer: 1,
+    explanation: "B menjawab: 就在桌子上，在电脑旁边 = Tepat di atas meja, di samping komputer."
+  },
+  {
+    id: 13,
+    type: "reading",
+    section: "Bagian 2: Membaca (阅读)",
+    text: "今天的生词我都______了，准备得很充分。",
+    prompt: "Pilihlah pelengkap hasil yang paling tepat untuk melengkapi kalimat:",
+    options: [
+      "跑 (pǎo)",
+      "记住 (jìzhù)",
+      "玩 (wán)",
+      "喝 (hē)"
+    ],
+    answer: 1,
+    explanation: "Pelengkap hasil 记住 (jìzhù) berarti mengingat dengan tuntas dan mantap: 生词我都记住了 = Kosakata baru sudah kuingat semuanya."
+  },
+  {
+    id: 14,
+    type: "reading",
+    section: "Bagian 2: Membaca (阅读)",
+    text: "服务员，这道菜______了，请给我们换一份。",
+    prompt: "Pilihlah kata yang tepat untuk situasi komplain di restoran:",
+    options: [
+      "做错 (zuò cuò - salah buat)",
+      "太好 (tài hǎo - terlalu bagus)",
+      "便宜 (piányi - murah)",
+      "高兴 (gāoxìng - senang)"
+    ],
+    answer: 0,
+    explanation: "做错了 = salah dibuat/keliru hidangannya, sehingga meminta pelayan untuk menggantinya (换一份)."
+  },
+  {
+    id: 15,
+    type: "reading",
+    section: "Bagian 2: Membaca (阅读)",
+    text: "他每天早上一边跑步，一边______。",
+    prompt: "Aktivitas apa yang paling logis melengkapi pola 'yìbiān... yìbiān...'?",
+    options: [
+      "睡觉 (shuìjiào)",
+      "听音乐 (tīng yīnyuè)",
+      "洗澡 (xǐzǎo)",
+      "关门 (guānmén)"
+    ],
+    answer: 1,
+    explanation: "Pola simultan: 一边跑步，一边听音乐 = Sambil berlari sambil mendengarkan musik."
+  },
+  {
+    id: 16,
+    type: "reading",
+    section: "Bagian 2: Membaca (阅读)",
+    text: "如果你明天有空，我们______去买新书吧。",
+    prompt: "Kata penghubung pasangan dari '如果... (jika)' adalah:",
+    options: [
+      "就 (jiù)",
+      "但是 (dànshì)",
+      "虽然 (suīrán)",
+      "因为 (yīnwèi)"
+    ],
+    answer: 0,
+    explanation: "Pasangan baku kalimat pengandaian: 如果... 就... (Jika... maka...)."
+  },
+  {
+    id: 17,
+    type: "reading",
+    section: "Bagian 2: Membaca (阅读)",
+    text: "他学习汉语学得非常______，大家都夸他。",
+    prompt: "Lengkapilah pelengkap derajat (得 + Sifat):",
+    options: [
+      "认真 (rènzhēn - rajin/sungguh-sungguh)",
+      "迟到 (chídào - terlambat)",
+      "铅笔 (qiānbǐ - pensil)",
+      "自行车 (zìxíngchē - sepeda)"
+    ],
+    answer: 0,
+    explanation: "学得非常认真 = Belajar dengan sangat sungguh-sungguh."
+  },
+  {
+    id: 18,
+    type: "reading",
+    section: "Bagian 2: Membaca (阅读)",
+    text: "A: 门怎么开着？\nB: 外面太热了，开着门透透气。",
+    prompt: "Partikel '着' (zhe) pada kalimat di atas berfungsi untuk menunjukkan:",
+    options: [
+      "Tindakan masa depan yang belum terjadi",
+      "Keberlanjutan kondisi status (pintu dalam keadaan terbuka)",
+      "Pertanyaan dengan nada heran",
+      "Perbandingan dua benda yang berbeda"
+    ],
+    answer: 1,
+    explanation: "Kata kerja + 着 (开着) menunjukkan kondisi yang sedang bertahan (pintu dalam keadaan terbuka)."
+  },
+  {
+    id: 19,
+    type: "reading",
+    section: "Bagian 2: Membaca (阅读)",
+    text: "从火车站到我们学校，坐地铁需要半个小时。",
+    prompt: "Berapa lama waktu perjalanan dari stasiun kereta ke sekolah dengan naik MRT?",
+    options: [
+      "10 menit",
+      "30 menit (半个小时 - setengah jam)",
+      "1 jam",
+      "2 jam"
+    ],
+    answer: 1,
+    explanation: "半个小时 (Bàn ge xiǎoshí) = 30 menit / setengah jam."
+  },
+  {
+    id: 20,
+    type: "reading",
+    section: "Bagian 2: Membaca (阅读)",
+    text: "医生说多吃蔬菜和水果对身体很有好处。",
+    prompt: "Menurut dokter, apa manfaat banyak makan sayur dan buah?",
+    options: [
+      "Membuat cepat mengantuk",
+      "Sangat bermanfaat bagi kesehatan tubuh (对身体很有好处)",
+      "Membuat penglihatan kabur",
+      "Tidak ada pengaruh apa-apa"
+    ],
+    answer: 1,
+    explanation: "对身体很有好处 = Sangat bermanfaat dan baik bagi kesehatan tubuh."
+  }
+];
+
+export function getMockExamQuestions(level = 1) {
+  return Number(level) === 2 ? HSK2_MOCK_EXAM_QUESTIONS : HSK1_MOCK_EXAM_QUESTIONS;
+}
+
+export default MOCK_EXAM_QUESTIONS;

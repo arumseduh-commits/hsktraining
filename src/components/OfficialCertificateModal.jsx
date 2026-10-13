@@ -71,7 +71,7 @@ export default function OfficialCertificateModal({ examResult, onClose }) {
               CHINESE PROFICIENCY TEST SCORE REPORT
             </h3>
             <div className="inline-block px-3 py-0.5 rounded-full bg-red-100 text-red-800 text-xs font-bold tracking-widest mt-1">
-              HSK (一级) • LEVEL 1 (STANDAR 3.0)
+              HSK ({examResult.level === 2 ? '二级' : '一级'}) • LEVEL {examResult.level || 1} (STANDAR 3.0)
             </div>
           </div>
 
@@ -150,7 +150,7 @@ export default function OfficialCertificateModal({ examResult, onClose }) {
               </tbody>
             </table>
             <p className="text-[10px] text-slate-400 text-right pt-1">
-              *Syarat nilai kelulusan resmi HSK 1: Minimal 120 dari 200 poin (60%).
+              *Syarat nilai kelulusan resmi HSK {examResult.level || 1}: Minimal 120 dari 200 poin (60%).
             </p>
           </div>
 
@@ -162,7 +162,9 @@ export default function OfficialCertificateModal({ examResult, onClose }) {
               </p>
               <p className="leading-relaxed text-slate-500 italic">
                 {isPassed 
-                  ? "Peserta telah memenuhi standar HSK 1 versi 3.0. Mampu memahami serta menggunakan kata dan frasa Mandarin sederhana sehari-hari untuk memenuhi kebutuhan komunikasi praktis dasar."
+                  ? examResult.level === 2
+                    ? "Peserta telah memenuhi standar HSK 2 versi 3.0. Mampu berkomunikasi secara langsung mengenai topik sehari-hari yang akrab (rutinitas, arah navigasi, transportasi, kuliner, dan perbandingan)."
+                    : "Peserta telah memenuhi standar HSK 1 versi 3.0. Mampu memahami serta menggunakan kata dan frasa Mandarin sederhana sehari-hari untuk memenuhi kebutuhan komunikasi praktis dasar."
                   : "Peserta belum memenuhi nilai ambang batas 120 poin. Disarankan mengulang latihan pada kosakata yang belum dikuasai."}
               </p>
             </div>
