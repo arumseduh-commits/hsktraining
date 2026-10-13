@@ -9,23 +9,12 @@ import {
   Award,
   Check,
   Zap,
-  Ear,
-  HelpCircle
+  Puzzle
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { speakChinese } from '../utils/speech';
 import { useLearning } from '../context/LearningContext';
-
-// Helper to determine pinyin tone number (1, 2, 3, or 4)
-function getPinyinToneNumber(pinyin) {
-  if (!pinyin) return 1;
-  const lower = pinyin.toLowerCase();
-  if (/[āēīōūǖ]/.test(lower)) return 1;
-  if (/[áéíóúǘ]/.test(lower)) return 2;
-  if (/[ǎěǐǒǔǚ]/.test(lower)) return 3;
-  if (/[àèìòùǜ]/.test(lower)) return 4;
-  return 1;
-}
+import { getSentenceDrills } from '../data/sentenceDrills';
 
 // Cute Panda Mascot Component matching user screenshots
 function PandaMascot() {
@@ -46,7 +35,7 @@ export default function DayHanziQuizModal({
   dayWords = [],
   onCompleteQuiz
 }) {
-  const { audioSpeed, updateWordStatus, words } = useLearning();
+  const { audioSpeed, updateWordStatus, words, currentLevel } = useLearning();
 
   const [questions, setQuestions] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -54,7 +43,7 @@ export default function DayHanziQuizModal({
   const [isFinished, setIsFinished] = useState(false);
   const [userAnswers, setUserAnswers] = useState([]);
 
-  // States for choice-based questions (listening_phrase, hanzi_meaning, tone_quiz)
+  // States for choice-based questions (listening_phrase, hanzi_meaning)
   const [selectedOption, setSelectedOption] = useState(null);
   const [isAnswered, setIsAnswered] = useState(false);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
@@ -67,7 +56,11 @@ export default function DayHanziQuizModal({
   const [mismatchIds, setMismatchIds] = useState([]);
   const mismatchTimeoutRef = useRef(null);
 
-  // Question generator combining all 4 interactive question formats
+  // States for sentence building question
+  const [availableTokens, setAvailableTokens] = useState([]);
+  const [selectedTokens, setSelectedTokens] = useState([]);
+
+  // Question generator (Matching pairs, Hanzi meaning, Sentence builder, Listening phrase)
   useEffect(() => {
     if (!isOpen) return;
 
@@ -91,7 +84,6 @@ export default function DayHanziQuizModal({
 
     // 1. QUESTION 1: Pasangkan kata dengan maknanya (Matching 3 pairs)
     const matchGroup1 = [nextWord(), nextWord(), nextWord()];
-    // Deduplicate in case pool was small
     const uniqueMatch1 = Array.from(new Map(matchGroup1.map(w => [w.id, w])).values());
     while (uniqueMatch1.length < 3 && words.length >= 3) {
       const extra = words[Math.floor(Math.random() * words.length)];
@@ -111,7 +103,7 @@ export default function DayHanziQuizModal({
       totalPairs: uniqueMatch1.length
     });
 
-    // 2. QUESTION 2: Tebak arti Hanzi (Hanzi to Indonesian meaning - STRICTLY NO AUDIO!)
+    // 2. QUESTION 2: Tebak arti Hanzi (Strictly visual - NO AUDIO ALLOWED!)
     const target2 = nextWord();
     const distractors2 = getDistractors(target2, 3);
     const options2 = [target2, ...distractors2].sort(() => Math.random() - 0.5);
@@ -125,20 +117,35 @@ export default function DayHanziQuizModal({
       correctArti: target2.arti
     });
 
-    // 3. QUESTION 3: 他说什么？ (Listening Phrase / Sentence Audio Comprehension)
-    const target3 = nextWord();
-    const hasExample = target3.contoh && target3.contoh.length > 0;
-    const audioText3 = hasExample ? target3.contoh : target3.hanzi;
-    const distractorWords3 = getDistractors(target3, 2);
+    // 3. QUESTION 3: Susun Kalimat (Sentence Builder)
+    const drills = getSentenceDrills(currentLevel || 1);
+    // Prefer drill that contains any word from today's batch
+    const matchedDrill = drills.find(d => pool.some(w => d.targetHz.includes(w.hanzi))) || drills[Math.floor(Math.random() * drills.length)];
+    generated.push({
+      id: 3,
+      type: 'sentence_builder',
+      title: 'Susun kalimat yang benar',
+      subtitle: matchedDrill.meaningId,
+      targetHz: matchedDrill.targetHz,
+      targetPy: matchedDrill.targetPy,
+      meaningId: matchedDrill.meaningId,
+      tokens: matchedDrill.tokens
+    });
+
+    // 4. QUESTION 4: 他说什么？ (Listening Audio Comprehension)
+    const target4 = nextWord();
+    const hasExample = target4.contoh && target4.contoh.length > 0;
+    const audioText4 = hasExample ? target4.contoh : target4.hanzi;
+    const distractorWords4 = getDistractors(target4, 2);
     
-    const options3 = [
+    const options4 = [
       {
-        id: target3.id,
-        hanzi: hasExample ? target3.contoh : target3.hanzi,
-        pinyin: hasExample ? target3.contohPinyin : target3.pinyin,
+        id: target4.id,
+        hanzi: hasExample ? target4.contoh : target4.hanzi,
+        pinyin: hasExample ? target4.contohPinyin : target4.pinyin,
         isCorrect: true
       },
-      ...distractorWords3.map(dw => ({
+      ...distractorWords4.map(dw => ({
         id: dw.id,
         hanzi: (hasExample && dw.contoh) ? dw.contoh : dw.hanzi,
         pinyin: (hasExample && dw.contohPinyin) ? dw.contohPinyin : dw.pinyin,
@@ -147,36 +154,17 @@ export default function DayHanziQuizModal({
     ].sort(() => Math.random() - 0.5);
 
     generated.push({
-      id: 3,
+      id: 4,
       type: 'listening_phrase',
       title: '他说什么？',
       subtitle: 'Tā shuō shénme?',
-      audioText: audioText3,
-      targetWord: target3,
-      options: options3,
-      correctId: target3.id
-    });
-
-    // 4. QUESTION 4: Tebak Nada (Tone Identification)
-    const target4 = nextWord();
-    const toneNum4 = target4.tone || getPinyinToneNumber(target4.pinyin);
-    const toneOptions4 = [
-      { id: 1, label: 'nada 1', desc: 'Datar tinggi (—)' },
-      { id: 2, label: 'nada 2', desc: 'Naik (/)' },
-      { id: 3, label: 'nada 3', desc: 'Turun-naik (∨)' },
-      { id: 4, label: 'nada 4', desc: 'Turun cepat (\\)' }
-    ];
-    generated.push({
-      id: 4,
-      type: 'tone_quiz',
-      title: 'Tebak nada (tone) karakter ini',
-      subtitle: 'Pilih nada suara yang tepat untuk pelafalan kata ini',
+      audioText: audioText4,
       targetWord: target4,
-      options: toneOptions4,
-      correctTone: toneNum4
+      options: options4,
+      correctId: target4.id
     });
 
-    // 5. QUESTION 5: Tebak arti Hanzi (Visual Recognition - NO AUDIO!)
+    // 5. QUESTION 5: Tebak arti Hanzi (Visual Recognition - Round 2 - NO AUDIO!)
     const target5 = nextWord();
     const distractors5 = getDistractors(target5, 3);
     const options5 = [target5, ...distractors5].sort(() => Math.random() - 0.5);
@@ -216,11 +204,11 @@ export default function DayHanziQuizModal({
     setScore(0);
     setIsFinished(false);
     setUserAnswers([]);
-    resetCurrentQuestionState();
-  }, [isOpen, dayWords, words]);
+    initQuestionState(generated[0]);
+  }, [isOpen, dayWords, words, currentLevel]);
 
-  // Reset local state when transitioning between questions
-  const resetCurrentQuestionState = () => {
+  // Setup state for the specific question
+  const initQuestionState = (q) => {
     setSelectedOption(null);
     setIsAnswered(false);
     setIsPlayingAudio(false);
@@ -230,6 +218,17 @@ export default function DayHanziQuizModal({
     setSelectedRight(null);
     setMismatchIds([]);
     if (mismatchTimeoutRef.current) clearTimeout(mismatchTimeoutRef.current);
+
+    if (q && q.type === 'sentence_builder') {
+      const tokensWithId = q.tokens
+        .map((text, idx) => ({ id: `${idx}-${text}`, text }))
+        .sort(() => Math.random() - 0.5);
+      setAvailableTokens(tokensWithId);
+      setSelectedTokens([]);
+    } else {
+      setAvailableTokens([]);
+      setSelectedTokens([]);
+    }
   };
 
   if (!isOpen) return null;
@@ -245,20 +244,24 @@ export default function DayHanziQuizModal({
     });
   };
 
-  // Logic for Matching Pairs Question
-  const handleSelectLeft = (id) => {
-    if (matchedIds.has(id)) return;
-    setSelectedLeft(id);
+  // Logic for Matching Pairs Question (Plays pronunciation on click!)
+  const handleSelectLeft = (item) => {
+    if (matchedIds.has(item.id)) return;
+    setSelectedLeft(item.id);
+
+    // Prompt audio pronunciation of the tapped Hanzi card!
+    speakChinese(item.hanzi, audioSpeed);
+
     if (selectedRight !== null) {
-      checkPair(id, selectedRight);
+      checkPair(item.id, selectedRight);
     }
   };
 
-  const handleSelectRight = (id) => {
-    if (matchedIds.has(id)) return;
-    setSelectedRight(id);
+  const handleSelectRight = (item) => {
+    if (matchedIds.has(item.id)) return;
+    setSelectedRight(item.id);
     if (selectedLeft !== null) {
-      checkPair(selectedLeft, id);
+      checkPair(selectedLeft, item.id);
     }
   };
 
@@ -272,6 +275,12 @@ export default function DayHanziQuizModal({
       setSelectedRight(null);
       updateWordStatus(leftId, 'mastered');
 
+      // Speak pronunciation confirmation on match!
+      const matchedItem = currentQ.leftCards?.find(c => c.id === leftId);
+      if (matchedItem) {
+        speakChinese(matchedItem.hanzi, audioSpeed);
+      }
+
       // If all matched, question complete!
       if (newMatched.size === currentQ.totalPairs) {
         setIsAnswered(true);
@@ -281,7 +290,7 @@ export default function DayHanziQuizModal({
           {
             type: 'match_pairs',
             isCorrect: true,
-            summary: `Mencocokkan ${currentQ.totalPairs} pasangan kata dengan sukses.`
+            summary: `Mencocokkan ${currentQ.totalPairs} pasangan kata dengan tepat.`
           }
         ]);
       }
@@ -297,7 +306,55 @@ export default function DayHanziQuizModal({
     }
   };
 
-  // Logic for multiple-choice questions (listening_phrase, hanzi_meaning, tone_quiz)
+  // Logic for Sentence Builder Question
+  const handleSelectToken = (token) => {
+    if (isAnswered) return;
+    setAvailableTokens(prev => prev.filter(t => t.id !== token.id));
+    setSelectedTokens(prev => [...prev, token]);
+  };
+
+  const handleRemoveToken = (token) => {
+    if (isAnswered) return;
+    setSelectedTokens(prev => prev.filter(t => t.id !== token.id));
+    setAvailableTokens(prev => [...prev, token]);
+  };
+
+  const handleResetTokens = () => {
+    if (isAnswered || !currentQ || currentQ.type !== 'sentence_builder') return;
+    const tokensWithId = currentQ.tokens
+      .map((text, idx) => ({ id: `${idx}-${text}`, text }))
+      .sort(() => Math.random() - 0.5);
+    setAvailableTokens(tokensWithId);
+    setSelectedTokens([]);
+  };
+
+  const handleCheckSentence = () => {
+    if (isAnswered || !currentQ || currentQ.type !== 'sentence_builder') return;
+    setIsAnswered(true);
+
+    const builtText = selectedTokens.map(t => t.text).join('');
+    // Normalization check ignoring whitespace or trailing punctuation if user arranged word tokens
+    const normBuilt = builtText.replace(/[。？！，、\s]/g, '');
+    const normTarget = currentQ.targetHz.replace(/[。？！，、\s]/g, '');
+    const isCorrect = (builtText === currentQ.targetHz) || (normBuilt === normTarget);
+
+    if (isCorrect) {
+      setScore(s => s + 1);
+      speakChinese(currentQ.targetHz, audioSpeed);
+      confetti({ particleCount: 30, spread: 50, origin: { y: 0.7 } });
+    }
+
+    setUserAnswers(prev => [
+      ...prev,
+      {
+        question: currentQ,
+        builtText,
+        isCorrect
+      }
+    ]);
+  };
+
+  // Logic for multiple-choice questions (listening_phrase, hanzi_meaning)
   const handleSelectChoice = (option) => {
     if (isAnswered) return;
     setSelectedOption(option);
@@ -310,8 +367,6 @@ export default function DayHanziQuizModal({
       isCorrect = option.id === currentQ.correctId;
     } else if (currentQ.type === 'listening_phrase') {
       isCorrect = option.id === currentQ.correctId;
-    } else if (currentQ.type === 'tone_quiz') {
-      isCorrect = option.id === currentQ.correctTone;
     }
 
     if (isCorrect) {
@@ -334,15 +389,16 @@ export default function DayHanziQuizModal({
   // Move to next question or finalize
   const handleNext = () => {
     if (currentIndex < questions.length - 1) {
-      setCurrentIndex(c => c + 1);
-      resetCurrentQuestionState();
+      const nextIdx = currentIndex + 1;
+      setCurrentIndex(nextIdx);
+      initQuestionState(questions[nextIdx]);
     } else {
       setIsFinished(true);
       const percent = Math.round((score / questions.length) * 100);
       if (percent >= 70) {
         confetti({
-          particleCount: 70,
-          spread: 70,
+          particleCount: 75,
+          spread: 75,
           origin: { y: 0.6 }
         });
       }
@@ -430,7 +486,7 @@ export default function DayHanziQuizModal({
                 <PandaMascot />
               </div>
 
-              {/* ---------------- TYPE 1: PASANGKAN KATA DENGAN MAKNANYA ---------------- */}
+              {/* ---------------- TYPE 1: PASANGKAN KATA DENGAN MAKNANYA (WITH VOICE AUDIO ON CLICK) ---------------- */}
               {currentQ.type === 'match_pairs' && (
                 <div className="grid grid-cols-2 gap-3 pt-2">
                   {/* Left Column: Hanzi & Pinyin Cards */}
@@ -443,7 +499,7 @@ export default function DayHanziQuizModal({
                       return (
                         <button
                           key={item.id}
-                          onClick={() => handleSelectLeft(item.id)}
+                          onClick={() => handleSelectLeft(item)}
                           disabled={isMatched}
                           className={`w-full p-4 rounded-2xl border-2 transition-all flex flex-col items-center justify-center min-h-[95px] text-center cursor-pointer ${
                             isMatched
@@ -478,7 +534,7 @@ export default function DayHanziQuizModal({
                       return (
                         <button
                           key={item.id}
-                          onClick={() => handleSelectRight(item.id)}
+                          onClick={() => handleSelectRight(item)}
                           disabled={isMatched}
                           className={`w-full p-4 rounded-2xl border-2 transition-all flex items-center justify-center min-h-[95px] text-center font-bold text-sm sm:text-base cursor-pointer ${
                             isMatched
@@ -498,15 +554,14 @@ export default function DayHanziQuizModal({
                 </div>
               )}
 
-              {/* ---------------- TYPE 2: TEBAK ARTI HANZI (NO AUDIO ALLOWED!) ---------------- */}
+              {/* ---------------- TYPE 2: TEBAK ARTI HANZI (NO AUDIO SPOILER!) ---------------- */}
               {currentQ.type === 'hanzi_meaning' && (
                 <div className="space-y-4 pt-1">
-                  {/* Center Hanzi Card (Strictly without voice/audio button) */}
+                  {/* Center Hanzi Card (Strictly without sound to prevent giveaway) */}
                   <div className="p-6 rounded-2xl border-2 border-[#2d4f43]/30 bg-white text-center shadow-[0_3px_0_0_#2d4f43]/15 max-w-xs mx-auto">
                     <span className="text-5xl sm:text-6xl font-black font-hanzi text-slate-900 block tracking-wider">
                       {currentQ.targetWord.hanzi}
                     </span>
-                    {/* Audio is strictly NOT provided here because it would give away the answer */}
                   </div>
 
                   {/* 4 Indonesian Meaning Options */}
@@ -543,7 +598,65 @@ export default function DayHanziQuizModal({
                 </div>
               )}
 
-              {/* ---------------- TYPE 3: 他说什么？ (LISTENING AUDIO COMPREHENSION) ---------------- */}
+              {/* ---------------- TYPE 3: SUSUN KALIMAT (SENTENCE BUILDER) ---------------- */}
+              {currentQ.type === 'sentence_builder' && (
+                <div className="space-y-4 pt-1">
+                  {/* Sentence Construction Zone */}
+                  <div className="min-h-[100px] p-4 rounded-2xl border-2 border-dashed border-[#2d4f43]/30 bg-white/90 flex flex-wrap items-center gap-2 shadow-inner">
+                    {selectedTokens.length === 0 ? (
+                      <span className="text-xs text-slate-400 font-medium italic select-none">
+                        Ketuk gelembung kata di bawah untuk merangkai susunan kalimat...
+                      </span>
+                    ) : (
+                      selectedTokens.map((tok) => (
+                        <button
+                          key={tok.id}
+                          onClick={() => handleRemoveToken(tok)}
+                          disabled={isAnswered}
+                          className="px-3.5 py-2 rounded-xl bg-[#2d5747] hover:bg-[#224437] text-white font-extrabold text-base sm:text-lg font-hanzi shadow-xs active:scale-95 transition-all cursor-pointer flex items-center gap-1"
+                          title="Ketuk untuk membatalkan kata ini"
+                        >
+                          <span>{tok.text}</span>
+                        </button>
+                      ))
+                    )}
+                  </div>
+
+                  {/* Reset Button */}
+                  {!isAnswered && selectedTokens.length > 0 && (
+                    <div className="flex justify-end">
+                      <button
+                        onClick={handleResetTokens}
+                        className="text-[11px] font-bold text-slate-500 hover:text-slate-800 flex items-center gap-1 transition-colors cursor-pointer"
+                      >
+                        <RotateCcw size={12} />
+                        <span>Ulangi Susunan</span>
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Available Tokens Selection Bank */}
+                  <div className="space-y-1.5 pt-1">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block text-center">
+                      Pilihan Kata:
+                    </span>
+                    <div className="flex flex-wrap items-center justify-center gap-2.5">
+                      {availableTokens.map((tok) => (
+                        <button
+                          key={tok.id}
+                          onClick={() => handleSelectToken(tok)}
+                          disabled={isAnswered}
+                          className="px-4 py-2.5 rounded-2xl border-2 border-[#2d4f43]/30 bg-white text-slate-900 font-black text-base sm:text-lg font-hanzi shadow-[0_3px_0_0_#2d4f43]/15 hover:border-[#2d4f43]/60 active:translate-y-0.5 transition-all cursor-pointer"
+                        >
+                          <span>{tok.text}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ---------------- TYPE 4: 他说什么？ (LISTENING AUDIO COMPREHENSION) ---------------- */}
               {currentQ.type === 'listening_phrase' && (
                 <div className="space-y-4 pt-1">
                   {/* Big Audio Play Button */}
@@ -609,60 +722,6 @@ export default function DayHanziQuizModal({
                   )}
                 </div>
               )}
-
-              {/* ---------------- TYPE 4: TEBAK NADA (TONE IDENTIFICATION) ---------------- */}
-              {currentQ.type === 'tone_quiz' && (
-                <div className="space-y-4 pt-1">
-                  {/* Center Hanzi + Pinyin Card */}
-                  <div className="p-5 rounded-2xl border-2 border-[#2d4f43]/30 bg-white text-center shadow-[0_3px_0_0_#2d4f43]/15 max-w-xs mx-auto flex items-center justify-center gap-3">
-                    <span className="text-4xl sm:text-5xl font-black font-hanzi text-slate-900">
-                      {currentQ.targetWord.hanzi}
-                    </span>
-                    <span className="text-2xl font-bold font-mono text-[#2d5747]">
-                      {currentQ.targetWord.pinyin}
-                    </span>
-                  </div>
-
-                  {/* 4 Tone Options (nada 1, nada 2, nada 3, nada 4) */}
-                  <div className="space-y-2.5">
-                    {currentQ.options.map((opt) => {
-                      const isChosen = selectedOption?.id === opt.id;
-                      const isCorrect = opt.id === currentQ.correctTone;
-
-                      let btnStyle = "border-[#2d4f43]/20 bg-white text-slate-800 hover:border-[#2d4f43]/50 shadow-[0_3px_0_0_#2d4f43]/10";
-                      if (isAnswered) {
-                        if (isCorrect) {
-                          btnStyle = "border-[#2d5747] bg-[#2d5747] text-white shadow-md";
-                        } else if (isChosen) {
-                          btnStyle = "border-rose-500 bg-rose-50 text-rose-950";
-                        } else {
-                          btnStyle = "border-slate-200 bg-white text-slate-400 opacity-50";
-                        }
-                      } else if (isChosen) {
-                        btnStyle = "border-[#2d5747] bg-emerald-50 text-[#1e3d30]";
-                      }
-
-                      return (
-                        <button
-                          key={opt.id}
-                          onClick={() => handleSelectChoice(opt)}
-                          disabled={isAnswered}
-                          className={`w-full p-4 rounded-2xl border-2 font-bold text-sm sm:text-base text-left transition-all flex items-center justify-between cursor-pointer ${btnStyle}`}
-                        >
-                          <div>
-                            <span>{opt.label}</span>
-                            <span className={`text-xs ml-2 font-normal ${
-                              isAnswered && isCorrect ? 'text-emerald-100' : 'text-slate-400'
-                            }`}>
-                              ({opt.desc})
-                            </span>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
             </div>
           ) : isFinished ? (
             /* ---------------- RESULTS VIEW ---------------- */
@@ -675,7 +734,7 @@ export default function DayHanziQuizModal({
 
               <div>
                 <h3 className="text-2xl font-black text-[#1e3d30]">
-                  {percentScore >= 80 ? 'Luar Biasa! Hanzi Dikuasai!' : percentScore >= 60 ? 'Bagus! Hampir Sempurna!' : 'Perlu Diulang Kembali'}
+                  {percentScore >= 80 ? 'Luar Biasa! Hanzi & Tata Bahasa Dikuasai!' : percentScore >= 60 ? 'Bagus! Hampir Sempurna!' : 'Perlu Diulang Kembali'}
                 </h3>
                 <p className="text-xs text-slate-500 mt-1">
                   Anda menjawab benar {score} dari {questions.length} variasi tes {day !== 'all' ? `Hari ${day}` : 'harian'}.
@@ -714,7 +773,14 @@ export default function DayHanziQuizModal({
                       }`}
                     >
                       <div className="flex items-center gap-2">
-                        {item.question?.targetWord ? (
+                        {item.question?.type === 'sentence_builder' ? (
+                          <>
+                            <span className="font-bold text-slate-800 font-hanzi">
+                              {item.question.targetHz}
+                            </span>
+                            <span className="text-slate-500">• {item.question.meaningId}</span>
+                          </>
+                        ) : item.question?.targetWord ? (
                           <>
                             <span className="font-hanzi font-bold text-base text-slate-900">
                               {item.question.targetWord.hanzi}
@@ -740,13 +806,11 @@ export default function DayHanziQuizModal({
               <div className="grid grid-cols-2 gap-2 pt-2">
                 <button
                   onClick={() => {
-                    // Trigger fresh generator
-                    const ev = new Event('restart_quiz');
                     setCurrentIndex(0);
                     setScore(0);
                     setIsFinished(false);
                     setUserAnswers([]);
-                    resetCurrentQuestionState();
+                    initQuestionState(questions[0]);
                   }}
                   className="py-3 px-4 rounded-2xl bg-white border border-[#2d4f43]/20 hover:bg-slate-50 text-slate-700 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                 >
@@ -769,7 +833,59 @@ export default function DayHanziQuizModal({
         {/* ---------------- BOTTOM ACTION CONTAINER ---------------- */}
         {!isFinished && (
           <div className="p-4 bg-white border-t border-[#2d4f43]/15">
-            {!isAnswered ? (
+            {/* If Sentence Builder Question */}
+            {currentQ?.type === 'sentence_builder' ? (
+              !isAnswered ? (
+                selectedTokens.length < currentQ.tokens.length ? (
+                  <button
+                    disabled
+                    className="w-full py-4 rounded-2xl bg-[#e8e2d5] text-[#7d7568] font-bold text-sm text-center cursor-not-allowed select-none transition-colors"
+                  >
+                    Susun semua kata dulu ({selectedTokens.length}/{currentQ.tokens.length})
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleCheckSentence}
+                    className="w-full py-4 rounded-2xl bg-[#1e453e] hover:bg-[#163530] active:scale-98 text-white font-extrabold text-sm sm:text-base flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer"
+                  >
+                    <span>Periksa Jawaban</span>
+                    <ArrowRight size={16} />
+                  </button>
+                )
+              ) : (
+                <div className="space-y-2 animate-fade-in">
+                  {selectedTokens.map(t => t.text).join('').replace(/[。？！，、\s]/g, '') === currentQ.targetHz.replace(/[。？！，、\s]/g, '') ? (
+                    <div className="flex items-center gap-2 text-emerald-800 font-black text-base">
+                      <div className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs">
+                        ✓
+                      </div>
+                      <span>Tepat! Susunan kalimat benar.</span>
+                    </div>
+                  ) : (
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2 text-rose-800 font-black text-base">
+                        <div className="w-5 h-5 rounded-full bg-rose-600 text-white flex items-center justify-center text-xs">
+                          ✕
+                        </div>
+                        <span>Belum Tepat</span>
+                      </div>
+                      <p className="text-xs text-rose-700 font-medium">
+                        Susunan yang benar: <strong>{currentQ.targetHz}</strong> ({currentQ.targetPy})
+                      </p>
+                    </div>
+                  )}
+
+                  <button
+                    onClick={handleNext}
+                    className="w-full py-4 rounded-2xl bg-[#1e453e] hover:bg-[#163530] active:scale-98 text-white font-extrabold text-sm sm:text-base flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer"
+                  >
+                    <span>{currentIndex < questions.length - 1 ? 'Lanjut' : 'Lihat Hasil Akhir'}</span>
+                    <ArrowRight size={16} />
+                  </button>
+                </div>
+              )
+            ) : !isAnswered ? (
+              /* For Choice and Match Pairs Questions */
               <button
                 disabled
                 className="w-full py-4 rounded-2xl bg-[#e8e2d5] text-[#7d7568] font-bold text-sm text-center cursor-not-allowed select-none transition-colors"
@@ -779,9 +895,7 @@ export default function DayHanziQuizModal({
             ) : (
               <div className="space-y-2 animate-fade-in">
                 {/* Instant Feedback Banner */}
-                {selectedOption?.id === currentQ?.correctId || 
-                 selectedOption?.id === currentQ?.correctTone ||
-                 currentQ?.type === 'match_pairs' ? (
+                {selectedOption?.id === currentQ?.correctId || currentQ?.type === 'match_pairs' ? (
                   <div className="flex items-center gap-2 text-emerald-800 font-black text-base">
                     <div className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs">
                       ✓
@@ -801,8 +915,6 @@ export default function DayHanziQuizModal({
                       <strong>
                         {currentQ.type === 'hanzi_meaning' 
                           ? currentQ.correctArti 
-                          : currentQ.type === 'tone_quiz' 
-                          ? `nada ${currentQ.correctTone}` 
                           : currentQ.targetWord?.hanzi}
                       </strong>
                     </p>
