@@ -26,6 +26,7 @@ import { useLearning } from '../context/LearningContext';
 import { speakChinese } from '../utils/speech';
 import DayHanziQuizModal from './DayHanziQuizModal';
 import DayGrammarModal from './DayGrammarModal';
+import { getHanziBreakdown } from '../data/hanziBreakdown';
 
 export default function FlashcardMode({ initialDay = 1 }) {
   const navigate = useNavigate();
@@ -52,6 +53,7 @@ export default function FlashcardMode({ initialDay = 1 }) {
   const [toastMessage, setToastMessage] = useState(null);
   const [isSessionCompleted, setIsSessionCompleted] = useState(false);
   const [isHanziQuizOpen, setIsHanziQuizOpen] = useState(false);
+  const [quizModalMode, setQuizModalMode] = useState('full');
   const [isGrammarModalOpen, setIsGrammarModalOpen] = useState(false);
   const [reviewSessionList, setReviewSessionList] = useState(null);
   const toastTimeoutRef = useRef(null);
@@ -456,13 +458,28 @@ export default function FlashcardMode({ initialDay = 1 }) {
               </button>
             )}
 
-            {/* Action B: Uji Pengetahuan Hanzi Hari Ini */}
+            {/* Action B1: Uji Lengkap Seluruh Kosakata Hari Ini (Misal 50 Soal) */}
             <button
-              onClick={() => setIsHanziQuizOpen(true)}
-              className="w-full py-3.5 px-4 rounded-2xl bg-slate-900 hover:bg-slate-800 active:scale-98 text-white font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
+              onClick={() => {
+                setQuizModalMode('full');
+                setIsHanziQuizOpen(true);
+              }}
+              className="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 active:scale-98 text-white font-extrabold text-xs shadow-md shadow-emerald-700/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
             >
-              <Zap size={16} className="text-amber-400" />
-              <span>Uji Pengetahuan Hanzi {selectedDay !== 'all' ? `Hari ke-${selectedDay}` : 'Hari Ini'}</span>
+              <Award size={16} />
+              <span>Uji Lengkap Semua {currentSessionBatch.length} Kata ({currentSessionBatch.length} Soal Penuh)</span>
+            </button>
+
+            {/* Action B2: Kuis Kilat Interaktif (Pasangan & Susun Kalimat) */}
+            <button
+              onClick={() => {
+                setQuizModalMode('interactive');
+                setIsHanziQuizOpen(true);
+              }}
+              className="w-full py-3 px-4 rounded-2xl bg-slate-900 hover:bg-slate-800 active:scale-98 text-white font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <Zap size={15} className="text-amber-400" />
+              <span>Kuis Kilat Interaktif (Pasangan & Susun Kalimat)</span>
             </button>
 
             {/* Action C: Ulas Semua & Navigasi */}
@@ -492,6 +509,7 @@ export default function FlashcardMode({ initialDay = 1 }) {
           onClose={() => setIsHanziQuizOpen(false)}
           day={selectedDay}
           dayWords={currentSessionBatch}
+          initialMode={quizModalMode}
           onCompleteQuiz={() => {
             // Keep stats fresh
           }}
@@ -924,8 +942,8 @@ export default function FlashcardMode({ initialDay = 1 }) {
             </div>
 
             {/* BACK: MEANING & CONTEXT */}
-            <div className="absolute inset-0 bg-white rounded-3xl p-6 sm:p-8 border border-rose-200/90 shadow-md shadow-slate-900/5 flex flex-col justify-between backface-hidden rotate-y-180">
-              <div className="flex items-center justify-between">
+            <div className="absolute inset-0 bg-white rounded-3xl p-5 sm:p-7 border border-rose-200/90 shadow-md shadow-slate-900/5 flex flex-col justify-between backface-hidden rotate-y-180 overflow-y-auto no-scrollbar">
+              <div className="flex items-center justify-between shrink-0">
                 <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full ${getTonePillClass(currentWord.tone)}`}>
                   Nada {currentWord.tone}
                 </span>
@@ -959,7 +977,7 @@ export default function FlashcardMode({ initialDay = 1 }) {
               </div>
 
               {/* Content Details */}
-              <div className="my-auto space-y-3 py-1">
+              <div className="my-auto space-y-3 py-2">
                 <div className="text-center">
                   <span className="text-3xl font-black text-slate-900 font-hanzi mr-2">
                     {currentWord.hanzi}
@@ -988,6 +1006,46 @@ export default function FlashcardMode({ initialDay = 1 }) {
                   </div>
                 )}
 
+                {/* Bedah Karakter & Radikal Masing-masing Hanzi */}
+                {currentWord.hanzi && (
+                  (() => {
+                    const breakdown = getHanziBreakdown(currentWord.hanzi);
+                    if (!breakdown || breakdown.length === 0) return null;
+                    return (
+                      <div className="bg-indigo-50/70 border border-indigo-100/90 rounded-2xl p-3 text-left space-y-2">
+                        <div className="flex items-center gap-1.5 text-[10px] font-bold text-indigo-700 uppercase tracking-wider">
+                          <Sparkles size={12} className="text-indigo-600 shrink-0" />
+                          <span>Bedah Karakter & Radikal ({breakdown.length} Hanzi):</span>
+                        </div>
+
+                        <div className="space-y-1.5">
+                          {breakdown.map((item, bIdx) => (
+                            <div key={bIdx} className="bg-white/95 rounded-xl p-2.5 border border-indigo-100/80 shadow-2xs space-y-1">
+                              <div className="flex items-center justify-between flex-wrap gap-1">
+                                <div className="flex items-baseline gap-1.5">
+                                  <span className="text-xl font-black font-hanzi text-slate-900">{item.char}</span>
+                                  {item.pinyin && (
+                                    <span className="text-xs font-mono font-bold text-rose-500">{item.pinyin}</span>
+                                  )}
+                                  <span className="text-xs font-semibold text-slate-700">• {item.meaning}</span>
+                                </div>
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-800">
+                                  Radikal: <strong className="font-hanzi font-black text-indigo-950">{item.radical}</strong> ({item.radicalMeaning})
+                                </span>
+                              </div>
+                              {item.explanation && (
+                                <p className="text-[11px] text-slate-600 leading-tight italic">
+                                  💡 {item.explanation}
+                                </p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()
+                )}
+
                 {/* Memory tip */}
                 {currentWord.tips && (
                   <div className="bg-amber-50/70 border border-amber-200/50 rounded-2xl p-2.5 text-xs text-amber-900 flex items-start gap-1.5 text-left">
@@ -1000,7 +1058,7 @@ export default function FlashcardMode({ initialDay = 1 }) {
               </div>
 
               {/* Hint Footer */}
-              <div className="text-center text-[11px] text-slate-400 flex items-center justify-center gap-1 pt-2">
+              <div className="text-center text-[11px] text-slate-400 flex items-center justify-center gap-1 pt-2 shrink-0">
                 <RotateCw size={12} />
                 <span>Ketuk untuk membalik kembali</span>
               </div>
@@ -1103,6 +1161,7 @@ export default function FlashcardMode({ initialDay = 1 }) {
         onClose={() => setIsHanziQuizOpen(false)}
         day={selectedDay}
         dayWords={currentSessionBatch}
+        initialMode={quizModalMode}
       />
 
       {/* Day Grammar Modal */}

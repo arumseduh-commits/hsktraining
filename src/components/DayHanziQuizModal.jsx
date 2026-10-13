@@ -9,7 +9,8 @@ import {
   Award,
   Check,
   Zap,
-  Puzzle
+  Puzzle,
+  RotateCw
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { speakChinese } from '../utils/speech';
@@ -33,17 +34,19 @@ export default function DayHanziQuizModal({
   onClose, 
   day, 
   dayWords = [],
+  initialMode = 'full',
   onCompleteQuiz
 }) {
   const { audioSpeed, updateWordStatus, words, currentLevel } = useLearning();
 
+  const [quizMode, setQuizMode] = useState(initialMode || 'full'); // 'full' (all words, e.g. 50 Qs) or 'interactive' (6 mixed Qs)
   const [questions, setQuestions] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [score, setScore] = useState(0);
   const [isFinished, setIsFinished] = useState(false);
   const [userAnswers, setUserAnswers] = useState([]);
 
-  // States for choice-based questions (listening_phrase, hanzi_meaning)
+  // States for choice-based questions (full_word_test, listening_phrase, hanzi_meaning)
   const [selectedOption, setSelectedOption] = useState(null);
   const [isAnswered, setIsAnswered] = useState(false);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
@@ -60,152 +63,187 @@ export default function DayHanziQuizModal({
   const [availableTokens, setAvailableTokens] = useState([]);
   const [selectedTokens, setSelectedTokens] = useState([]);
 
-  // Question generator (Matching pairs, Hanzi meaning, Sentence builder, Listening phrase)
+  // Helper to get 3 unique distractors with different meanings
+  const getDistractors = (targetWord, count = 3) => {
+    const candidates = words.filter(w => w.id !== targetWord.id && w.arti !== targetWord.arti);
+    return candidates.sort(() => Math.random() - 0.5).slice(0, count);
+  };
+
+  // Main question generator based on selected mode
+  const generateQuestions = (targetMode) => {
+    const pool = (dayWords && dayWords.length > 0) ? [...dayWords] : [...words];
+
+    if (targetMode === 'full') {
+      // MODE FULL: Test ALL words in batch (e.g. 50 words -> 50 questions!)
+      // Shuffles the words order, and each question has 4 randomized options
+      const shuffledBatch = [...pool].sort(() => Math.random() - 0.5);
+
+      const fullQuestions = shuffledBatch.map((targetWord, idx) => {
+        const distractors = getDistractors(targetWord, 3);
+        const options = [targetWord, ...distractors].sort(() => Math.random() - 0.5);
+
+        return {
+          id: idx + 1,
+          type: 'full_word_test',
+          title: `Uji Kosakata #${idx + 1}`,
+          prompt: 'Pilih arti bahasa Indonesia yang tepat:',
+          targetWord,
+          options,
+          correctId: targetWord.id,
+          correctArti: targetWord.arti
+        };
+      });
+
+      setQuestions(fullQuestions);
+      setCurrentIndex(0);
+      setScore(0);
+      setIsFinished(false);
+      setUserAnswers([]);
+      initQuestionState(fullQuestions[0]);
+    } else {
+      // MODE INTERACTIVE: 6 varied questions (Matching, Hanzi meaning, Sentence builder, Listening)
+      const shuffledPool = [...pool].sort(() => Math.random() - 0.5);
+      const generated = [];
+
+      let wordPointer = 0;
+      const nextWord = () => {
+        const w = shuffledPool[wordPointer % shuffledPool.length];
+        wordPointer++;
+        return w;
+      };
+
+      // 1. Q1: Pasangkan kata dengan maknanya (Matching 3 pairs)
+      const matchGroup1 = [nextWord(), nextWord(), nextWord()];
+      const uniqueMatch1 = Array.from(new Map(matchGroup1.map(w => [w.id, w])).values());
+      while (uniqueMatch1.length < 3 && words.length >= 3) {
+        const extra = words[Math.floor(Math.random() * words.length)];
+        if (!uniqueMatch1.some(w => w.id === extra.id)) {
+          uniqueMatch1.push(extra);
+        }
+      }
+      const left1 = uniqueMatch1.map(w => ({ id: w.id, hanzi: w.hanzi, pinyin: w.pinyin, word: w }));
+      const right1 = [...uniqueMatch1].sort(() => Math.random() - 0.5).map(w => ({ id: w.id, arti: w.arti, word: w }));
+      generated.push({
+        id: 1,
+        type: 'match_pairs',
+        title: 'Pasangkan kata dengan maknanya',
+        subtitle: 'Ketuk kata Mandarin dan artinya yang sesuai',
+        leftCards: left1,
+        rightCards: right1,
+        totalPairs: uniqueMatch1.length
+      });
+
+      // 2. Q2: Tebak arti Hanzi (Strictly visual - NO AUDIO ALLOWED!)
+      const target2 = nextWord();
+      const distractors2 = getDistractors(target2, 3);
+      const options2 = [target2, ...distractors2].sort(() => Math.random() - 0.5);
+      generated.push({
+        id: 2,
+        type: 'hanzi_meaning',
+        title: 'Apa arti karakter Hanzi ini?',
+        targetWord: target2,
+        options: options2,
+        correctId: target2.id,
+        correctArti: target2.arti
+      });
+
+      // 3. Q3: Susun Kalimat (Sentence Builder)
+      const drills = getSentenceDrills(currentLevel || 1);
+      const matchedDrill = drills.find(d => pool.some(w => d.targetHz.includes(w.hanzi))) || drills[Math.floor(Math.random() * drills.length)];
+      generated.push({
+        id: 3,
+        type: 'sentence_builder',
+        title: 'Susun kalimat yang benar',
+        subtitle: matchedDrill.meaningId,
+        targetHz: matchedDrill.targetHz,
+        targetPy: matchedDrill.targetPy,
+        meaningId: matchedDrill.meaningId,
+        tokens: matchedDrill.tokens
+      });
+
+      // 4. Q4: 他说什么？ (Listening Audio Comprehension)
+      const target4 = nextWord();
+      const hasExample = target4.contoh && target4.contoh.length > 0;
+      const audioText4 = hasExample ? target4.contoh : target4.hanzi;
+      const distractorWords4 = getDistractors(target4, 2);
+      
+      const options4 = [
+        {
+          id: target4.id,
+          hanzi: hasExample ? target4.contoh : target4.hanzi,
+          pinyin: hasExample ? target4.contohPinyin : target4.pinyin,
+          isCorrect: true
+        },
+        ...distractorWords4.map(dw => ({
+          id: dw.id,
+          hanzi: (hasExample && dw.contoh) ? dw.contoh : dw.hanzi,
+          pinyin: (hasExample && dw.contohPinyin) ? dw.contohPinyin : dw.pinyin,
+          isCorrect: false
+        }))
+      ].sort(() => Math.random() - 0.5);
+
+      generated.push({
+        id: 4,
+        type: 'listening_phrase',
+        title: '他说什么？',
+        subtitle: 'Tā shuō shénme?',
+        audioText: audioText4,
+        targetWord: target4,
+        options: options4,
+        correctId: target4.id
+      });
+
+      // 5. Q5: Tebak arti Hanzi (Visual Recognition - Round 2 - NO AUDIO!)
+      const target5 = nextWord();
+      const distractors5 = getDistractors(target5, 3);
+      const options5 = [target5, ...distractors5].sort(() => Math.random() - 0.5);
+      generated.push({
+        id: 5,
+        type: 'hanzi_meaning',
+        title: 'Apa arti karakter Hanzi ini?',
+        targetWord: target5,
+        options: options5,
+        correctId: target5.id,
+        correctArti: target5.arti
+      });
+
+      // 6. Q6: Pasangkan kata dengan maknanya (Babak 2 Penguatan)
+      const matchGroup2 = [nextWord(), nextWord(), nextWord()];
+      const uniqueMatch2 = Array.from(new Map(matchGroup2.map(w => [w.id, w])).values());
+      while (uniqueMatch2.length < 3 && words.length >= 3) {
+        const extra = words[Math.floor(Math.random() * words.length)];
+        if (!uniqueMatch2.some(w => w.id === extra.id)) {
+          uniqueMatch2.push(extra);
+        }
+      }
+      const left2 = uniqueMatch2.map(w => ({ id: w.id, hanzi: w.hanzi, pinyin: w.pinyin, word: w }));
+      const right2 = [...uniqueMatch2].sort(() => Math.random() - 0.5).map(w => ({ id: w.id, arti: w.arti, word: w }));
+      generated.push({
+        id: 6,
+        type: 'match_pairs',
+        title: 'Pasangkan kata dengan maknanya',
+        subtitle: 'Ketuk kata Mandarin dan artinya yang sesuai',
+        leftCards: left2,
+        rightCards: right2,
+        totalPairs: uniqueMatch2.length
+      });
+
+      setQuestions(generated);
+      setCurrentIndex(0);
+      setScore(0);
+      setIsFinished(false);
+      setUserAnswers([]);
+      initQuestionState(generated[0]);
+    }
+  };
+
+  // Sync mode and generate questions on open or mode switch
   useEffect(() => {
     if (!isOpen) return;
-
-    const pool = (dayWords && dayWords.length >= 3) ? [...dayWords] : [...words];
-    const shuffledPool = [...pool].sort(() => Math.random() - 0.5);
-
-    const generated = [];
-
-    // Helper to get 3 unique distractors
-    const getDistractors = (targetWord, count = 3) => {
-      const candidates = words.filter(w => w.id !== targetWord.id && w.arti !== targetWord.arti);
-      return candidates.sort(() => Math.random() - 0.5).slice(0, count);
-    };
-
-    let wordPointer = 0;
-    const nextWord = () => {
-      const w = shuffledPool[wordPointer % shuffledPool.length];
-      wordPointer++;
-      return w;
-    };
-
-    // 1. QUESTION 1: Pasangkan kata dengan maknanya (Matching 3 pairs)
-    const matchGroup1 = [nextWord(), nextWord(), nextWord()];
-    const uniqueMatch1 = Array.from(new Map(matchGroup1.map(w => [w.id, w])).values());
-    while (uniqueMatch1.length < 3 && words.length >= 3) {
-      const extra = words[Math.floor(Math.random() * words.length)];
-      if (!uniqueMatch1.some(w => w.id === extra.id)) {
-        uniqueMatch1.push(extra);
-      }
-    }
-    const left1 = uniqueMatch1.map(w => ({ id: w.id, hanzi: w.hanzi, pinyin: w.pinyin, word: w }));
-    const right1 = [...uniqueMatch1].sort(() => Math.random() - 0.5).map(w => ({ id: w.id, arti: w.arti, word: w }));
-    generated.push({
-      id: 1,
-      type: 'match_pairs',
-      title: 'Pasangkan kata dengan maknanya',
-      subtitle: 'Ketuk kata Mandarin dan artinya yang sesuai',
-      leftCards: left1,
-      rightCards: right1,
-      totalPairs: uniqueMatch1.length
-    });
-
-    // 2. QUESTION 2: Tebak arti Hanzi (Strictly visual - NO AUDIO ALLOWED!)
-    const target2 = nextWord();
-    const distractors2 = getDistractors(target2, 3);
-    const options2 = [target2, ...distractors2].sort(() => Math.random() - 0.5);
-    generated.push({
-      id: 2,
-      type: 'hanzi_meaning',
-      title: 'Apa arti karakter Hanzi ini?',
-      targetWord: target2,
-      options: options2,
-      correctId: target2.id,
-      correctArti: target2.arti
-    });
-
-    // 3. QUESTION 3: Susun Kalimat (Sentence Builder)
-    const drills = getSentenceDrills(currentLevel || 1);
-    // Prefer drill that contains any word from today's batch
-    const matchedDrill = drills.find(d => pool.some(w => d.targetHz.includes(w.hanzi))) || drills[Math.floor(Math.random() * drills.length)];
-    generated.push({
-      id: 3,
-      type: 'sentence_builder',
-      title: 'Susun kalimat yang benar',
-      subtitle: matchedDrill.meaningId,
-      targetHz: matchedDrill.targetHz,
-      targetPy: matchedDrill.targetPy,
-      meaningId: matchedDrill.meaningId,
-      tokens: matchedDrill.tokens
-    });
-
-    // 4. QUESTION 4: 他说什么？ (Listening Audio Comprehension)
-    const target4 = nextWord();
-    const hasExample = target4.contoh && target4.contoh.length > 0;
-    const audioText4 = hasExample ? target4.contoh : target4.hanzi;
-    const distractorWords4 = getDistractors(target4, 2);
-    
-    const options4 = [
-      {
-        id: target4.id,
-        hanzi: hasExample ? target4.contoh : target4.hanzi,
-        pinyin: hasExample ? target4.contohPinyin : target4.pinyin,
-        isCorrect: true
-      },
-      ...distractorWords4.map(dw => ({
-        id: dw.id,
-        hanzi: (hasExample && dw.contoh) ? dw.contoh : dw.hanzi,
-        pinyin: (hasExample && dw.contohPinyin) ? dw.contohPinyin : dw.pinyin,
-        isCorrect: false
-      }))
-    ].sort(() => Math.random() - 0.5);
-
-    generated.push({
-      id: 4,
-      type: 'listening_phrase',
-      title: '他说什么？',
-      subtitle: 'Tā shuō shénme?',
-      audioText: audioText4,
-      targetWord: target4,
-      options: options4,
-      correctId: target4.id
-    });
-
-    // 5. QUESTION 5: Tebak arti Hanzi (Visual Recognition - Round 2 - NO AUDIO!)
-    const target5 = nextWord();
-    const distractors5 = getDistractors(target5, 3);
-    const options5 = [target5, ...distractors5].sort(() => Math.random() - 0.5);
-    generated.push({
-      id: 5,
-      type: 'hanzi_meaning',
-      title: 'Apa arti karakter Hanzi ini?',
-      targetWord: target5,
-      options: options5,
-      correctId: target5.id,
-      correctArti: target5.arti
-    });
-
-    // 6. QUESTION 6: Pasangkan kata dengan maknanya (Babak 2 Penguatan)
-    const matchGroup2 = [nextWord(), nextWord(), nextWord()];
-    const uniqueMatch2 = Array.from(new Map(matchGroup2.map(w => [w.id, w])).values());
-    while (uniqueMatch2.length < 3 && words.length >= 3) {
-      const extra = words[Math.floor(Math.random() * words.length)];
-      if (!uniqueMatch2.some(w => w.id === extra.id)) {
-        uniqueMatch2.push(extra);
-      }
-    }
-    const left2 = uniqueMatch2.map(w => ({ id: w.id, hanzi: w.hanzi, pinyin: w.pinyin, word: w }));
-    const right2 = [...uniqueMatch2].sort(() => Math.random() - 0.5).map(w => ({ id: w.id, arti: w.arti, word: w }));
-    generated.push({
-      id: 6,
-      type: 'match_pairs',
-      title: 'Pasangkan kata dengan maknanya',
-      subtitle: 'Ketuk kata Mandarin dan artinya yang sesuai',
-      leftCards: left2,
-      rightCards: right2,
-      totalPairs: uniqueMatch2.length
-    });
-
-    setQuestions(generated);
-    setCurrentIndex(0);
-    setScore(0);
-    setIsFinished(false);
-    setUserAnswers([]);
-    initQuestionState(generated[0]);
-  }, [isOpen, dayWords, words, currentLevel]);
+    const modeToUse = initialMode || 'full';
+    setQuizMode(modeToUse);
+    generateQuestions(modeToUse);
+  }, [isOpen, initialMode, dayWords, words]);
 
   // Setup state for the specific question
   const initQuestionState = (q) => {
@@ -231,11 +269,17 @@ export default function DayHanziQuizModal({
     }
   };
 
+  const switchMode = (newMode) => {
+    if (newMode === quizMode) return;
+    setQuizMode(newMode);
+    generateQuestions(newMode);
+  };
+
   if (!isOpen) return null;
 
   const currentQ = questions[currentIndex];
 
-  // Play audio for listening questions (ONLY for listening_phrase, NEVER for hanzi_meaning!)
+  // Play audio for listening questions (ONLY for listening_phrase, NEVER for hanzi recognition!)
   const handlePlayAudio = (textToPlay) => {
     if (!textToPlay) return;
     setIsPlayingAudio(true);
@@ -333,7 +377,6 @@ export default function DayHanziQuizModal({
     setIsAnswered(true);
 
     const builtText = selectedTokens.map(t => t.text).join('');
-    // Normalization check ignoring whitespace or trailing punctuation if user arranged word tokens
     const normBuilt = builtText.replace(/[。？！，、\s]/g, '');
     const normTarget = currentQ.targetHz.replace(/[。？！，、\s]/g, '');
     const isCorrect = (builtText === currentQ.targetHz) || (normBuilt === normTarget);
@@ -354,7 +397,7 @@ export default function DayHanziQuizModal({
     ]);
   };
 
-  // Logic for multiple-choice questions (listening_phrase, hanzi_meaning)
+  // Logic for multiple-choice questions (full_word_test, listening_phrase, hanzi_meaning)
   const handleSelectChoice = (option) => {
     if (isAnswered) return;
     setSelectedOption(option);
@@ -363,7 +406,7 @@ export default function DayHanziQuizModal({
     let isCorrect = false;
     let targetWord = currentQ.targetWord;
 
-    if (currentQ.type === 'hanzi_meaning') {
+    if (currentQ.type === 'full_word_test' || currentQ.type === 'hanzi_meaning') {
       isCorrect = option.id === currentQ.correctId;
     } else if (currentQ.type === 'listening_phrase') {
       isCorrect = option.id === currentQ.correctId;
@@ -409,6 +452,7 @@ export default function DayHanziQuizModal({
   };
 
   const percentScore = questions.length > 0 ? Math.round((score / questions.length) * 100) : 0;
+  const totalCount = dayWords?.length || words.length;
 
   return (
     <div className="fixed inset-0 z-[120] flex items-center justify-center p-3 sm:p-4 bg-slate-950/75 backdrop-blur-md animate-fade-in">
@@ -416,7 +460,7 @@ export default function DayHanziQuizModal({
         className="w-full max-w-lg bg-[#fbf9f4] rounded-3xl shadow-2xl border border-[#2d4f43]/20 overflow-hidden flex flex-col max-h-[92vh]"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Top Header & Progress */}
+        {/* Top Header & Mode Switcher */}
         <div className="pt-4 px-5 pb-2 bg-[#fbf9f4]">
           <div className="flex items-center justify-between mb-2">
             <button
@@ -427,11 +471,32 @@ export default function DayHanziQuizModal({
               <X size={20} />
             </button>
 
-            <span className="text-[11px] font-black uppercase tracking-wider text-[#2d5747]">
-              Uji Pengetahuan {day !== 'all' ? `Hari ${day}` : 'Harian'}
-            </span>
+            {/* Mode Switcher Pill */}
+            <div className="flex items-center gap-1 bg-[#e8e2d5]/60 p-1 rounded-xl">
+              <button
+                onClick={() => switchMode('full')}
+                className={`px-3 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                  quizMode === 'full' 
+                    ? 'bg-[#2d5747] text-white shadow-xs' 
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                🏆 Uji Semua ({totalCount} Kata)
+              </button>
 
-            <div className="w-8" />
+              <button
+                onClick={() => switchMode('interactive')}
+                className={`px-3 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                  quizMode === 'interactive' 
+                    ? 'bg-[#2d5747] text-white shadow-xs' 
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                ⚡ Kuis Kilat (6 Soal)
+              </button>
+            </div>
+
+            <div className="w-6" />
           </div>
 
           {/* Continuous Green Progress Bar */}
@@ -449,26 +514,35 @@ export default function DayHanziQuizModal({
         <div className="px-5 py-4 overflow-y-auto space-y-4 flex-1">
           {!isFinished && currentQ ? (
             <div className="space-y-4 animate-fade-in">
-              {/* Ringkasan Singkat Segmented Dots */}
+              {/* Progress Count Header */}
               <div className="flex items-center justify-between text-xs font-bold text-slate-500">
-                <span className="text-[#2d4f43]">Ringkasan singkat</span>
-                <div className="flex items-center gap-1.5">
-                  {questions.map((_, i) => (
-                    <div 
-                      key={i}
-                      className={`h-1.5 rounded-full transition-all duration-300 ${
-                        i < currentIndex 
-                          ? 'w-6 bg-[#2d5747]' 
-                          : i === currentIndex 
-                          ? 'w-8 bg-[#2d5747]' 
-                          : 'w-6 bg-[#e0dacf]'
-                      }`}
-                    />
-                  ))}
-                  <span className="ml-1 text-[11px] font-mono text-slate-400 font-bold">
-                    {currentIndex + 1}/{questions.length}
+                <span className="text-[#2d4f43]">
+                  {quizMode === 'full' ? `Soal ${currentIndex + 1} dari ${questions.length}` : 'Ringkasan singkat'}
+                </span>
+                
+                {quizMode === 'interactive' ? (
+                  <div className="flex items-center gap-1.5">
+                    {questions.map((_, i) => (
+                      <div 
+                        key={i}
+                        className={`h-1.5 rounded-full transition-all duration-300 ${
+                          i < currentIndex 
+                            ? 'w-6 bg-[#2d5747]' 
+                            : i === currentIndex 
+                            ? 'w-8 bg-[#2d5747]' 
+                            : 'w-6 bg-[#e0dacf]'
+                        }`}
+                      />
+                    ))}
+                    <span className="ml-1 text-[11px] font-mono text-slate-400 font-bold">
+                      {currentIndex + 1}/{questions.length}
+                    </span>
+                  </div>
+                ) : (
+                  <span className="text-[11px] font-mono text-slate-400 font-bold">
+                    {Math.round(((currentIndex + 1) / questions.length) * 100)}% Selesai
                   </span>
-                </div>
+                )}
               </div>
 
               {/* Title & Cute Panda Header */}
@@ -485,6 +559,60 @@ export default function DayHanziQuizModal({
                 </div>
                 <PandaMascot />
               </div>
+
+              {/* ---------------- MODE FULL: UJI SELURUH KATA (50 SOAL DENGAN OPSI ACAK) ---------------- */}
+              {currentQ.type === 'full_word_test' && (
+                <div className="space-y-4 pt-1">
+                  {/* Big Hanzi Center Card (NO SOUND SPOILER!) */}
+                  <div className="p-6 sm:p-7 rounded-2xl border-2 border-[#2d4f43]/30 bg-white text-center shadow-[0_3px_0_0_#2d4f43]/15 max-w-xs mx-auto space-y-1">
+                    <span className="text-5xl sm:text-6xl font-black font-hanzi text-slate-900 block tracking-wider">
+                      {currentQ.targetWord.hanzi}
+                    </span>
+                    {isAnswered && (
+                      <span className="text-sm font-mono font-bold text-rose-500 block animate-fade-in">
+                        {currentQ.targetWord.pinyin}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Question Prompt */}
+                  <p className="text-xs font-bold text-[#2d5747] text-center">
+                    {currentQ.prompt}
+                  </p>
+
+                  {/* 4 Randomized Options */}
+                  <div className="space-y-2.5">
+                    {currentQ.options.map((opt) => {
+                      const isChosen = selectedOption?.id === opt.id;
+                      const isCorrect = opt.id === currentQ.correctId;
+
+                      let btnStyle = "border-[#2d4f43]/20 bg-white text-slate-800 hover:border-[#2d4f43]/50 shadow-[0_3px_0_0_#2d4f43]/10";
+                      if (isAnswered) {
+                        if (isCorrect) {
+                          btnStyle = "border-[#2d5747] bg-[#2d5747] text-white shadow-md";
+                        } else if (isChosen) {
+                          btnStyle = "border-rose-500 bg-rose-50 text-rose-950";
+                        } else {
+                          btnStyle = "border-slate-200 bg-white text-slate-400 opacity-50";
+                        }
+                      } else if (isChosen) {
+                        btnStyle = "border-[#2d5747] bg-emerald-50 text-[#1e3d30]";
+                      }
+
+                      return (
+                        <button
+                          key={opt.id}
+                          onClick={() => handleSelectChoice(opt)}
+                          disabled={isAnswered}
+                          className={`w-full p-4 rounded-2xl border-2 font-bold text-sm sm:text-base text-left transition-all cursor-pointer ${btnStyle}`}
+                        >
+                          <span>{opt.arti}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {/* ---------------- TYPE 1: PASANGKAN KATA DENGAN MAKNANYA (WITH VOICE AUDIO ON CLICK) ---------------- */}
               {currentQ.type === 'match_pairs' && (
@@ -734,10 +862,10 @@ export default function DayHanziQuizModal({
 
               <div>
                 <h3 className="text-2xl font-black text-[#1e3d30]">
-                  {percentScore >= 80 ? 'Luar Biasa! Hanzi & Tata Bahasa Dikuasai!' : percentScore >= 60 ? 'Bagus! Hampir Sempurna!' : 'Perlu Diulang Kembali'}
+                  {percentScore >= 80 ? 'Luar Biasa! Kosakata Dikuasai!' : percentScore >= 60 ? 'Bagus! Terus Tingkatkan!' : 'Perlu Diulang Kembali'}
                 </h3>
                 <p className="text-xs text-slate-500 mt-1">
-                  Anda menjawab benar {score} dari {questions.length} variasi tes {day !== 'all' ? `Hari ${day}` : 'harian'}.
+                  Anda menjawab benar {score} dari {questions.length} kata {day !== 'all' ? `Hari ${day}` : 'yang dipelajari'}.
                 </p>
               </div>
 
@@ -759,12 +887,12 @@ export default function DayHanziQuizModal({
                 </div>
               </div>
 
-              {/* Detailed Summary Review */}
+              {/* Detailed Summary Review of ALL words tested */}
               <div className="text-left space-y-2 pt-2">
                 <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-                  Catatan Evaluasi Tes:
+                  Ringkasan Seluruh {questions.length} Kata yang Diuji:
                 </span>
-                <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
+                <div className="max-h-56 overflow-y-auto space-y-1.5 pr-1">
                   {userAnswers.map((item, idx) => (
                     <div 
                       key={idx}
@@ -806,11 +934,7 @@ export default function DayHanziQuizModal({
               <div className="grid grid-cols-2 gap-2 pt-2">
                 <button
                   onClick={() => {
-                    setCurrentIndex(0);
-                    setScore(0);
-                    setIsFinished(false);
-                    setUserAnswers([]);
-                    initQuestionState(questions[0]);
+                    generateQuestions(quizMode);
                   }}
                   className="py-3 px-4 rounded-2xl bg-white border border-[#2d4f43]/20 hover:bg-slate-50 text-slate-700 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                 >
@@ -885,7 +1009,7 @@ export default function DayHanziQuizModal({
                 </div>
               )
             ) : !isAnswered ? (
-              /* For Choice and Match Pairs Questions */
+              /* For Choice, Full Word Test, and Match Pairs Questions */
               <button
                 disabled
                 className="w-full py-4 rounded-2xl bg-[#e8e2d5] text-[#7d7568] font-bold text-sm text-center cursor-not-allowed select-none transition-colors"
@@ -913,9 +1037,7 @@ export default function DayHanziQuizModal({
                     <p className="text-xs text-rose-700 font-medium">
                       Kunci Jawaban:{' '}
                       <strong>
-                        {currentQ.type === 'hanzi_meaning' 
-                          ? currentQ.correctArti 
-                          : currentQ.targetWord?.hanzi}
+                        {currentQ.correctArti || currentQ.targetWord?.arti || currentQ.targetWord?.hanzi}
                       </strong>
                     </p>
                   </div>
